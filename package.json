@@ -1,27 +1,25 @@
 {
   "name": "prueba-tecnic",
-  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "16.4.6",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "dev": "pnpm --filter @app/web dev",
+    "build": "pnpm --filter @app/web build",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "arch:selftest": "bash scripts/arch-selftest.sh",
+    "arch": "depcruise apps/web --config .dependency-cruiser.cjs",
+    "format": "prettier --write .",
+    "audit": "pnpm audit --audit-level=high"
   },
   "devDependencies": {
-    "@tailwindcss/turbopack": "4.3.3",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.4.6",
-    "tailwindcss": "4.3.3",
-    "typescript": "^5"
+    "@vitest/coverage-v8": "^5.1.1",
+    "dependency-cruiser": "^18.9.0",
+    "lefthook": "^2.2.2",
+    "prettier": "^3.10.1",
+    "supabase": "^3.2.0",
+    "typescript": "^5",
+    "vitest": "^5.1.1"
   },
   "packageManager": "pnpm@12.18.0"
 }

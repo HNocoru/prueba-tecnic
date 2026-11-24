@@ -1,0 +1,6 @@
+{
+  "name": "@app/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tipos generados de Supabase (se llena en T0.3)"
+}

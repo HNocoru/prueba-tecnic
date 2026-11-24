@@ -1,0 +1,13 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: eslint
+      root: apps/web/
+      glob: "*.{ts,tsx,mjs}"
+      run: pnpm exec eslint --no-warn-ignored {staged_files}
+    - name: typecheck
+      glob: "*.{ts,tsx}"
+      run: pnpm typecheck
+    - name: prettier
+      glob: "*.{ts,tsx,mjs,json,md,yml}"
+      run: pnpm exec prettier --check {staged_files}
