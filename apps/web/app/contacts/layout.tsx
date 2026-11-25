@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
+import { requireUser } from "@/modules/auth";
 import { Sidebar } from "@/components/organisms/Sidebar";
 
-export default function ContactsLayout({ children }: { children: ReactNode }) {
+export default async function ContactsLayout({ children }: { children: ReactNode }) {
+  await requireUser();
+
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <Sidebar />
