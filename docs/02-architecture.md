@@ -6,8 +6,8 @@
 ## 1. Resumen
 
 Monolito modular en Next.js/TypeScript desplegado en Vercel + Supabase (Postgres multi-tenant,
-Auth, Realtime, Storage) + **un único proceso fuera de Vercel**: el worker de voz en Python
-(LiveKit Agents + plugin de Phonic).
+Auth, Realtime, Storage) + **un worker de voz fuera de Vercel**, en un repo aparte (`pt-worker`):
+Python (LiveKit Agents + plugin de Phonic).
 
 **Por qué:** un proceso se separa solo si necesita una conexión de larga duración que Vercel no
 mantiene, o está en otro lenguaje por una razón fuerte, o debe escalar/fallar de forma
@@ -35,8 +35,9 @@ para que una futura separación en servicios sea mecánica, pero no paga hoy su 
 Supabase: Postgres + Auth + Realtime + Storage
 ```
 
-Dos unidades desplegables: `apps/web` (Vercel) y `apps/voice-worker` (host de proceso siempre
-encendido; evitar planes gratuitos que "duermen"). `Decisión`
+Dos unidades desplegables, en dos repos: la app (repo `prueba-tecnic`, `apps/web`, Vercel) y el
+worker (repo `pt-worker`, host de proceso siempre encendido, no Vercel; evitar planes gratuitos
+que "duermen"). `Decisión`
 
 ## 3. Estructura del repo
 
@@ -52,7 +53,6 @@ repo/
 │  │     ├─ memory/               # ContextStore + resumen incremental
 │  │     ├─ calls/                # adaptador Telephony (aceptar llamada)
 │  │     └─ tenancy/              # resolver negocio por phone_number_id
-│  └─ voice-worker/               # Python (uv): LiveKit Agents + Phonic
 ├─ packages/
 │  ├─ ai/                         # puertos LLM/STT + adaptadores + ProviderRouter
 │  ├─ prompts/                    # prompt base y plantillas de memoria
@@ -60,6 +60,8 @@ repo/
 ├─ supabase/migrations/           # esquema, RLS y funciones RPC
 └─ docs/
 ```
+
+Nota: el worker de voz **no** vive en este repo; está en el repo aparte `pt-worker`.
 
 Cada módulo: `domain/` (entidades y reglas, sin dependencias) → `application/` (casos de uso y
 **puertos**) → `infrastructure/` (adaptadores) + `index.ts` (API pública). `composition.ts`
@@ -74,9 +76,9 @@ Cada módulo: `domain/` (entidades y reglas, sin dependencias) → `application/
 5. Librerías de proveedor (`@supabase/*`, SDK de modelos) solo en `infrastructure/` o `packages/ai`.
 6. Cada tabla pertenece a un solo módulo; los demás piden los datos por su puerto.
 
-En el worker Python se conserva el mismo criterio con import-linter: núcleo sin dependencias,
-`livekit` y `phonic` solo en adaptadores. El worker **no toca la base de datos directamente**: pide
-y guarda todo por HTTP a `apps/web` (ver Por verificar #8). `Decisión`
+El worker es un repo aparte (`pt-worker`); el criterio con import-linter se aplica allí: núcleo
+sin dependencias, `livekit` y `phonic` solo en adaptadores. El worker **no toca la base de datos
+directamente**: pide y guarda todo por HTTP a la API de la app (ver Por verificar #8). `Decisión`
 
 ## 5. Puertos principales
 
@@ -117,12 +119,19 @@ enviar respuesta por Graph API → guardar y reflejar en tiempo real en el dashb
 
 ## 8. Datos (resumen; el detalle irá en `03-data-model.md`)
 
-Multi-tenant con `tenant_id` en todas las tablas y RLS:
-`tenant_id IN (SELECT tenant_id FROM tenant_members WHERE user_id = auth.uid())`. El webhook y el
-worker usan la service role key, solo en servidor.
+Esquema **actual** (implementado en T0.3):
 
-Tablas previstas: `tenants`, `tenant_members`, `whatsapp_numbers` (`phone_number_id` único),
-`contacts` (único por `tenant_id + wa_id`; `phone_e164` aparte), `conversations`,
+- `tenants`: `status`; `settings` sin secretos (se valida con `jsonb_has_secrets`).
+- `tenant_members`: `tenant_id`, `user_id` (-> `auth.users`), `role`.
+- `contacts`: `wa_id`, `phone_e164` aparte, `attributes`, `redacted_at` (con trigger
+  `guard_contacts`); `UNIQUE(tenant_id, wa_id)` y `UNIQUE(tenant_id, id)`.
+
+Multi-tenant con `tenant_id` en todas las tablas. `current_tenant()` devuelve `SETOF uuid`, es
+`SECURITY DEFINER` y se basa en `auth.uid()` (opción A). `FORCE RLS` en todas las tablas; `anon`
+sin acceso; policies solo para `authenticated`. El worker no tiene credenciales de base de datos;
+la API usa `service_role` solo en servidor y con `tenant_id` explícito.
+
+**Plan (no implementado):** `whatsapp_numbers` (`phone_number_id` único), `conversations`,
 `timeline_items` (índice `conversation_id, occurred_at DESC, id DESC`), `messages` (`wamid` único),
 `calls` (`wa_call_id` único; motivo de término), `call_turns`, `contact_memory`,
 `webhook_events`, y opcionalmente `business_hours` y `appointments`.
@@ -178,7 +187,7 @@ bloqueo optimista (`version`). No se usan embeddings. `Decisión`
 | 5   | Phonic por LiveKit entrega la transcripción turno por turno; los post-call webhooks pueden no emitirse para conversaciones por LiveKit/WebSocket (diseñar sin depender de ellos) | Slice 04            |
 | 6   | `after()` de Next en Vercel es confiable para el procesamiento diferido (si no, cron que reprocese `webhook_events`)                                                             | Slice 01            |
 | 7   | Los 10 concurrentes de Phonic Starter cuentan conexiones abiertas o minutos activos                                                                                              | Slice 07            |
-| 8   | El worker puede obtener y guardar datos solo por HTTP a `apps/web` con latencia aceptable (< ~800 ms en lecturas)                                                                | Slice 04            |
+| 8   | El worker puede obtener y guardar datos solo por HTTP a `apps/web` con latencia aceptable (< ~800 ms en lecturas). El worker es repo `pt-worker`                                 | Slice 04            |
 | 9   | Grabación y transcripción de llamadas: política de Meta no revisada                                                                                                              | Antes de la entrega |
 | 10  | Soporte UDP/puertos del host elegido para el worker (solo importa si se usa la ruta de contingencia)                                                                             | Solo si falla #1    |
 

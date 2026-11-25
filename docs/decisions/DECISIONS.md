@@ -4,7 +4,15 @@ Decisiones y deudas registradas durante el slice 00 (docs/00-skeleton.md, odd/ta
 
 ## Decisiones
 
-- **Monorepo con pnpm:** `apps/web` (Next.js) y `apps/voice-worker` (Python, placeholder). `packages/db` con los tipos generados de Supabase.
+- **App en este repo** (`apps/web` + `packages/db`, tipos generados de Supabase); **worker en repo aparte `pt-worker`**.
+
+- **Dos repos (app y worker)** por despliegues en hosts distintos (decisión del usuario).
+
+- **Caliope como referencia, no base** (sin pruebas reales de voz).
+
+- **Worker sin acceso a base de datos;** HTTP a la API de la app.
+
+- **`docs/00-skeleton.md` es el plan original;** estos cambios de alcance se registran aquí.
 
 - **Multitenant, opción A:** `auth.uid()` + tabla `tenant_members` + función `current_tenant()` (`SECURITY DEFINER`). El `service_role` solo se usa en el servidor y con `tenant_id` explícito.
 
@@ -13,6 +21,8 @@ Decisiones y deudas registradas durante el slice 00 (docs/00-skeleton.md, odd/ta
 - **No adoptar** los patrones de `ai-call-center` ni de `api-caliope-core-s2s` (alembic, roles `app_*`, outbox, campañas, particiones).
 
 ## Deudas
+
+- Eliminar `apps/voice-worker` y actualizar el README raíz (hecho en este handoff).
 
 - El aislamiento de webhook y worker depende del código (pendiente de resolver).
 

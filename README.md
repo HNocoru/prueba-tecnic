@@ -7,8 +7,8 @@ terminó.
 ## Stack
 
 - Next.js + TypeScript + Tailwind + shadcn/ui + Supabase (Postgres, Auth, Realtime, Storage) en Vercel.
-- Un único proceso fuera de Vercel: `apps/voice-worker` (Python, LiveKit Agents + Phonic). En esta fase es un placeholder.
-- Monorepo pnpm con `apps/web`, `apps/voice-worker` y `packages/db` (tipos generados de Supabase).
+- Worker de voz en repo aparte `pt-worker` (Python, LiveKit Agents + Phonic), fuera de Vercel.
+- Monorepo pnpm con `apps/web` y `packages/db` (tipos generados de Supabase).
 
 ## Cómo correr el proyecto localmente (sin WhatsApp)
 
