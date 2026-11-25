@@ -6,7 +6,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 M=apps/web/modules
 A=apps/web/app/__fixtures__
-trap 'rm -rf "$M/zz_a" "$M/zz_b" "$M/channels/zz_c" "$A"' EXIT
+trap 'rm -rf "$M/zz_a" "$M/zz_b" "$M/channels/zz_c" "$A"; rmdir "$M/channels" 2>/dev/null; true' EXIT
 
 mk() { mkdir -p "$(dirname "$1")"; printf '%s\n' "$2" > "$1"; }
 mk "$M/zz_a/index.ts" "export const a = 1;"
