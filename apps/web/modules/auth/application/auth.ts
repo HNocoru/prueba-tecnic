@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import { createClient } from "./server";
+import { createClient } from "@/shared/supabase/server";
 
 /** Credenciales aceptadas por el formulario de login. */
 export const credentialsSchema = z.object({

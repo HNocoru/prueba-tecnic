@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { signOut } from "@/lib/supabase/auth";
+import { signOut } from "@/modules/auth";
 
 /**
  * Cierra la sesión actual. Solo POST para evitar cierres de sesión accidentales

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { getAuthRedirect } from "@/lib/supabase/auth-redirect";
-import { createProxyClient } from "@/lib/supabase/proxy";
+import { createProxyClient, getAuthRedirect } from "@/modules/auth";
 
 /** Cabeceras de caché que Supabase exige cuando escribe cookies de sesión. */
 const AUTH_CACHE_HEADERS = ["cache-control", "expires", "pragma"];

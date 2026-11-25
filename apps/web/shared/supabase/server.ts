@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@app/db";
 import { cookies } from "next/headers";
 
-import { clientEnv } from "../env.client";
+import { clientEnv } from "@/shared/env.client";
 
 /**
  * Crea un cliente de Supabase para el servidor usando la sesión del usuario

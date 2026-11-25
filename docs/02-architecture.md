@@ -51,8 +51,10 @@ repo/
 │  │  │  ├─ atoms/
 │  │  │  ├─ molecules/            # EmptyState, ErrorState, LoadingState
 │  │  │  └─ organisms/            # Sidebar
-│  │  ├─ lib/                     # env, logger y clientes de Supabase (supabase/)
+│  │  ├─ shared/                  # común: env*, logger, supabase/{server,client}
+│  │  ├─ proxy.ts                 # entrada delgada: delega en modules/auth
 │  │  └─ modules/                 # LÓGICA: un módulo = un slice vertical
+│  │     ├─ auth/                 # login/logout/sesión (domain, application, infrastructure)
 │  │     ├─ conversations/        # contactos, conversación, timeline
 │  │     ├─ channels/whatsapp/    # parser de webhooks + envío por Graph API
 │  │     ├─ agents/text/          # caso de uso "responder mensaje"

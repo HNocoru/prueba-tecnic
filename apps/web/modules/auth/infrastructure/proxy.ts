@@ -4,7 +4,7 @@ import type { Database } from "@app/db";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { clientEnv } from "../env.client";
+import { clientEnv } from "@/shared/env.client";
 
 export type ProxySupabaseClient = {
   supabase: SupabaseClient<Database>;

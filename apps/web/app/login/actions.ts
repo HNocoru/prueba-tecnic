@@ -2,11 +2,11 @@
 
 import { redirect } from "next/navigation";
 
-import { credentialsSchema, signInWithPassword } from "@/lib/supabase/auth";
+import { credentialsSchema, signInWithPassword } from "@/modules/auth";
 
 export type LoginState = { error: string | null };
 
-/** Acción del formulario de login. La lógica de Supabase vive en lib/supabase. */
+/** Acción del formulario de login. La lógica de Supabase vive en modules/auth. */
 export async function loginAction(
   _previousState: LoginState,
   formData: FormData,
