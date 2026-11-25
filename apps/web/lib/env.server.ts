@@ -1,0 +1,42 @@
+import "server-only";
+
+import { z } from "zod";
+
+import { clientEnv } from "./env.client";
+
+/**
+ * Esquema de las variables de entorno exclusivas del servidor (secretos).
+ * Nunca deben llevar prefijo NEXT_PUBLIC_.
+ */
+const serverSchema = z.object({
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  SUPABASE_URL: z.string().url().optional(),
+  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
+});
+
+/**
+ * Valida las variables del servidor contra `process.env` al importar el módulo.
+ * Lanza un error que nombra la variable faltante o inválida, sin imprimir valores.
+ */
+function parseServerEnv(): z.infer<typeof serverSchema> {
+  const result = serverSchema.safeParse({
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    LOG_LEVEL: process.env.LOG_LEVEL,
+  });
+
+  if (!result.success) {
+    const names = result.error.issues
+      .map((issue) => (issue.path.length > 0 ? issue.path.join(".") : "unknown"))
+      .join(", ");
+    throw new Error(`Faltan o son inválidas las variables de entorno del servidor: ${names}`);
+  }
+
+  return result.data;
+}
+
+export { serverSchema };
+export const serverEnv = parseServerEnv();
+export const env = { ...clientEnv, ...serverEnv };
+export type ServerEnv = z.infer<typeof serverSchema>;
+export type Env = typeof env;
