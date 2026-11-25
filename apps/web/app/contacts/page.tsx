@@ -1,4 +1,4 @@
-import { EmptyState } from "@/components/EmptyState";
+import { EmptyState } from "@/components/molecules/EmptyState";
 
 const EMPTY_MESSAGE = "Aún no hay contactos. Escribe al WhatsApp del negocio para crear el primero";
 

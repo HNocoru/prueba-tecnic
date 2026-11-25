@@ -46,6 +46,12 @@ repo/
 ├─ apps/
 │  ├─ web/                        # Next.js
 │  │  ├─ app/                     # ENTRADAS (delgadas): páginas y route.ts
+│  │  ├─ components/              # UI con atomic design
+│  │  │  ├─ ui/                   # shadcn (generado)
+│  │  │  ├─ atoms/
+│  │  │  ├─ molecules/            # EmptyState, ErrorState, LoadingState
+│  │  │  └─ organisms/            # Sidebar
+│  │  ├─ lib/                     # env, logger y clientes de Supabase (supabase/)
 │  │  └─ modules/                 # LÓGICA: un módulo = un slice vertical
 │  │     ├─ conversations/        # contactos, conversación, timeline
 │  │     ├─ channels/whatsapp/    # parser de webhooks + envío por Graph API
@@ -60,6 +66,8 @@ repo/
 ├─ supabase/migrations/           # esquema, RLS y funciones RPC
 └─ docs/
 ```
+
+Los componentes siguen atomic design (`ui` → `atoms` → `molecules` → `organisms`).
 
 Nota: el worker de voz **no** vive en este repo; está en el repo aparte `pt-worker`.
 

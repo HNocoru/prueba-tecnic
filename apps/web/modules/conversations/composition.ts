@@ -1,12 +1,14 @@
+import { createClient } from "@/lib/supabase/server";
 import { ListContacts } from "./application/ListContacts";
-import { createSupabaseContactRepository } from "./infrastructure/SupabaseContactRepository";
+import { SupabaseContactRepository } from "./infrastructure/SupabaseContactRepository";
 
 /**
  * Composition root del modulo conversations: arma el caso de uso con su adaptador.
+ * El cliente de Supabase (sesion del usuario, por request) viene de lib/supabase/server.
  */
-export function composeListContacts(): ListContacts {
-  const contactRepository = createSupabaseContactRepository();
-  const listContacts = new ListContacts(contactRepository);
+export async function composeListContacts(): Promise<ListContacts> {
+  const supabase = await createClient();
+  const contactRepository = new SupabaseContactRepository(supabase);
 
-  return listContacts;
+  return new ListContacts(contactRepository);
 }

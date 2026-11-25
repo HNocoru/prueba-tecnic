@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar } from "@/components/organisms/Sidebar";
 
 export default function ContactsLayout({ children }: { children: ReactNode }) {
   return (
