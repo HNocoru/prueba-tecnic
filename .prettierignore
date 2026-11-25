@@ -4,3 +4,4 @@ coverage
 pnpm-lock.yaml
 supabase/migrations
 packages/db/src/database.types.ts
+docs/04-worker-contract.md
