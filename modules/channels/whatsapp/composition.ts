@@ -1,3 +1,4 @@
+import { createCallWebhookHandler } from "@/modules/calls";
 import { serverEnv } from "@/shared/env.server";
 import { createAdminClient } from "@/shared/supabase/admin";
 
@@ -10,7 +11,13 @@ import { SupabaseWhatsAppNumberStore } from "./infrastructure/SupabaseWhatsAppNu
 /** Composition root: arma la ingesta con el adaptador de Supabase (service_role). */
 export function composeIngestWhatsAppWebhook(): IngestWhatsAppWebhook {
   const store = new SupabaseChannelStore(createAdminClient());
-  return new IngestWhatsAppWebhook(store, store, store);
+  const callHandler = createCallWebhookHandler();
+  // El tenant lo resuelve whatsapp (dueño de whatsapp_numbers); calls solo recibe el evento.
+  const calls = {
+    handle: (tenantId: string, event: Parameters<typeof callHandler.execute>[1]) =>
+      callHandler.execute(tenantId, event),
+  };
+  return new IngestWhatsAppWebhook(store, store, store, calls);
 }
 
 /** Composition root del flujo "conectar número". */

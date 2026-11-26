@@ -39,3 +39,41 @@ Decisiones y deudas registradas durante el slice 00 (docs/00-skeleton.md, odd/ta
 ## Seguridad
 
 - Punto de revisión de seguridad: `current_tenant()` es `SETOF` y `SECURITY DEFINER`.
+
+## Slice 02 — Llamada contestada (API interna del worker)
+
+Decisiones y deudas del handoff `odd/handoffs/S02-A-app-internal-api.md`.
+
+### Decisiones
+
+- **API interna con Bearer `WORKER_API_TOKEN`:** rutas bajo `/api/internal/*`; el token se compara en
+  tiempo constante (SHA-256 + `timingSafeEqual`) y sin token válido se responde 401. El worker nunca
+  recibe `tenant_id`: la app lo deduce del `call_id`.
+- **Lógica en `modules/calls`** (domain → application con puertos → infrastructure + composition);
+  `app/api/internal` solo valida el Bearer, lee el cuerpo y traduce el resultado a códigos HTTP.
+- **El webhook `calls` se normaliza en `channels/whatsapp`**, dueño de `whatsapp_numbers` y
+  `webhook_events`, y delega en `modules/calls`. El tenant se resuelve por `phone_number_id`; el
+  evento se registra con id `call:{wa_call_id}:{evento}` para que un reintento de Meta no duplique.
+- **`terminate` cierra de forma best-effort** (`caller_hangup` y duración calculada). El `end` del
+  worker es autoritativo y puede reescribir motivo y duración; un segundo `end` deja los mismos valores.
+- **Contexto mínimo:** nombre de `tenants`, tono/voz/idioma de `assistant_configs` y los últimos 12
+  mensajes de texto de la conversación. `memory` va vacío hasta que exista `contact_memory`.
+
+### Deudas
+
+- **Formato exacto del webhook `calls` "Por verificar":** se acepta la forma pública `value.calls[]`
+  y, por tolerancia, el evento plano en `value` (`event`/`call_id`). Falta capturar un evento real
+  del Connector de WhatsApp y ajustar el parser.
+- **No se contesta la llamada:** faltan `pre_accept`/`accept` por Graph API y el despacho a LiveKit;
+  este slice solo crea y cierra la fila `calls`.
+- **`modules/business` no existe:** `faq` y `hours` van vacíos; `is_new` se aproxima con
+  `contacts.created_at >= calls.started_at`. Reemplazar por memoria/negocio reales en el slice 05/08.
+- **`contact_memory` no existe:** el contexto devuelve `memory: { summary: "", facts: {} }`.
+- **`call_turns` no tiene `UNIQUE(call_id, position)`:** la idempotencia por `seq` se logra leyendo
+  las posiciones existentes antes de insertar (carrera no cubierta). Añadir la restricción en una migración.
+- **`started_ms` de los turnos no se persiste** (no hay columna) y **`calls` no tiene columna para el
+  error del worker ni `answered_at`**: el error de `/end` se descarta.
+- **Heartbeat sin persistencia:** no hay tabla de salud; el endpoint solo valida y registra en el log.
+- **Sin resumen de llamada:** generarlo requiere el LLM de texto (slice 04/05).
+- **Contacto y conversación desde el adaptador de `calls`:** se crean en `SupabaseCallRepository`
+  porque `conversations` aún no expone un caso de uso de escritura (regla 6 de tablas pendiente).

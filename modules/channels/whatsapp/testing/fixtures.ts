@@ -49,6 +49,45 @@ export const accountUpdatePayload = {
   ],
 };
 
+/**
+ * Webhook del campo calls. El formato exacto del Connector de WhatsApp está "Por verificar":
+ * esta fixture refleja la forma pública documentada (value.calls[]) y no un evento real capturado.
+ */
+function callsPayload(event: string, waCallId = "wacid.CALL1"): Record<string, unknown> {
+  return {
+    object: "whatsapp_business_account",
+    entry: [
+      {
+        id: "WABA",
+        changes: [
+          {
+            field: "calls",
+            value: {
+              messaging_product: "whatsapp",
+              metadata: { display_phone_number: "15551652725", phone_number_id: PHONE_NUMBER_ID },
+              contacts: [{ profile: { name: "Ana" }, wa_id: "5215512345678" }],
+              calls: [
+                {
+                  id: waCallId,
+                  from: "5215512345678",
+                  to: "15551652725",
+                  event,
+                  timestamp: "1767225600",
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export const callConnectPayload = (waCallId = "wacid.CALL1") => callsPayload("connect", waCallId);
+
+export const callTerminatePayload = (waCallId = "wacid.CALL1") =>
+  callsPayload("terminate", waCallId);
+
 export const statusPayload = {
   object: "whatsapp_business_account",
   entry: [

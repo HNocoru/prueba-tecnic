@@ -13,6 +13,8 @@ const serverSchema = z.object({
   SUPABASE_URL: z.string().url().optional(),
   WHATSAPP_APP_SECRET: z.string().min(1),
   WHATSAPP_VERIFY_TOKEN: z.string().min(1),
+  /** Secreto compartido con el worker de voz para /api/internal/*. */
+  WORKER_API_TOKEN: z.string().min(1),
   WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
 });
@@ -27,6 +29,7 @@ function parseServerEnv(): z.infer<typeof serverSchema> {
     SUPABASE_URL: process.env.SUPABASE_URL,
     WHATSAPP_APP_SECRET: process.env.WHATSAPP_APP_SECRET,
     WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN,
+    WORKER_API_TOKEN: process.env.WORKER_API_TOKEN,
     WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN,
     LOG_LEVEL: process.env.LOG_LEVEL,
   });

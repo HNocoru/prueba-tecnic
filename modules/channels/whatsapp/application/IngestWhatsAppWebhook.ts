@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 
+import type { InboundCall } from "../domain/InboundCall";
 import type { InboundMessage } from "../domain/InboundMessage";
 import { parsePayload } from "./parsePayload";
-import type { ContactStore, EventStore, TenantResolver } from "./ports";
+import type { CallEventSink, ContactStore, EventStore, TenantResolver } from "./ports";
 
 const PROVIDER_ERROR_MAX = 500;
 
@@ -15,6 +16,7 @@ export class IngestWhatsAppWebhook {
     private readonly events: EventStore,
     private readonly tenants: TenantResolver,
     private readonly contacts: ContactStore,
+    private readonly calls?: CallEventSink,
   ) {}
 
   async execute(rawBody: string): Promise<void> {
@@ -34,15 +36,18 @@ export class IngestWhatsAppWebhook {
       return;
     }
 
-    if (parsed.messages.length === 0) {
+    for (const message of parsed.messages) {
+      await this.ingestMessage(message);
+    }
+
+    for (const call of parsed.calls) {
+      await this.ingestCall(call, json);
+    }
+
+    if (parsed.messages.length === 0 && parsed.calls.length === 0) {
       // Solo statuses u otros eventos ignorados: se registran como procesados.
       const { alreadyProcessed } = await this.events.saveEvent(bodyHash, json);
       if (!alreadyProcessed) await this.events.markProcessed(bodyHash, null);
-      return;
-    }
-
-    for (const message of parsed.messages) {
-      await this.ingestMessage(message);
     }
   }
 
@@ -80,6 +85,34 @@ export class IngestWhatsAppWebhook {
         body: message.body,
         occurredAt: message.occurredAt,
       });
+      await this.events.markProcessed(eventId, tenantId);
+    } catch (error) {
+      await this.safeMarkFailed(eventId, tenantId, error);
+    }
+  }
+
+  private async ingestCall(call: InboundCall, payload: unknown): Promise<void> {
+    const eventId = `call:${call.waCallId}:${call.event}`;
+    let tenantId: string | null = null;
+    try {
+      const { alreadyProcessed } = await this.events.saveEvent(eventId, payload);
+      if (alreadyProcessed) return;
+
+      tenantId = await this.tenants.findTenantIdByPhoneNumberId(call.phoneNumberId);
+      if (!tenantId) {
+        await this.events.markFailed(
+          eventId,
+          null,
+          `phone_number_id desconocido: ${call.phoneNumberId}`,
+        );
+        return;
+      }
+      if (!this.calls) {
+        await this.events.markFailed(eventId, tenantId, "sin manejador de llamadas configurado");
+        return;
+      }
+
+      await this.calls.handle(tenantId, call);
       await this.events.markProcessed(eventId, tenantId);
     } catch (error) {
       await this.safeMarkFailed(eventId, tenantId, error);

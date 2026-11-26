@@ -1,3 +1,4 @@
+import type { InboundCall } from "../domain/InboundCall";
 import type { InboundMessage } from "../domain/InboundMessage";
 
 export type MessageInput = Pick<InboundMessage, "wamid" | "kind" | "body" | "occurredAt"> & {
@@ -14,6 +15,11 @@ export interface EventStore {
 
 export interface TenantResolver {
   findTenantIdByPhoneNumberId(phoneNumberId: string): Promise<string | null>;
+}
+
+/** Salida hacia el módulo calls: el tenant ya viene resuelto por phone_number_id. */
+export interface CallEventSink {
+  handle(tenantId: string, event: InboundCall): Promise<void>;
 }
 
 /** Escritura de contactos, conversaciones y mensajes; siempre con tenant_id explícito. */

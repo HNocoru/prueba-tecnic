@@ -14,7 +14,10 @@ export function GET(request: Request): Response {
   return new Response(challenge, { status: 200, headers: { "content-type": "text/plain" } });
 }
 
-/** Mensajes entrantes: verifica la firma sobre el cuerpo crudo y procesa después de responder. */
+/**
+ * Webhook de Meta (campos messages y calls): verifica la firma sobre el cuerpo crudo
+ * y procesa después de responder 200.
+ */
 export async function POST(request: Request): Promise<Response> {
   const rawBody = await request.text();
   if (

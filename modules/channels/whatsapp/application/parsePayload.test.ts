@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   accountUpdatePayload,
   audioPayload,
+  callConnectPayload,
+  callTerminatePayload,
   statusPayload,
   textPayload,
 } from "../testing/fixtures";
@@ -39,11 +41,59 @@ describe("parsePayload", () => {
 
   it("ignora statuses (sin mensajes)", () => {
     const result = parsePayload(statusPayload);
-    expect(result).toEqual({ ok: true, messages: [] });
+    expect(result).toEqual({ ok: true, messages: [], calls: [] });
   });
 
   it("ignora account_update (WEBHOOK_CONFIG_UPDATED) sin mensajes", () => {
-    expect(parsePayload(accountUpdatePayload)).toEqual({ ok: true, messages: [] });
+    expect(parsePayload(accountUpdatePayload)).toEqual({ ok: true, messages: [], calls: [] });
+  });
+
+  it("extrae el evento calls/connect con número, contacto y hora", () => {
+    const result = parsePayload(callConnectPayload());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.messages).toEqual([]);
+    expect(result.calls).toEqual([
+      {
+        waCallId: "wacid.CALL1",
+        phoneNumberId: "1370925136115469",
+        event: "connect",
+        waId: "5215512345678",
+        occurredAt: new Date(1767225600 * 1000),
+      },
+    ]);
+  });
+
+  it("extrae el evento calls/terminate", () => {
+    const result = parsePayload(callTerminatePayload("wacid.CALL9"));
+    expect(result.ok && result.calls[0]).toMatchObject({
+      waCallId: "wacid.CALL9",
+      event: "terminate",
+    });
+  });
+
+  it("ignora eventos de calls que no son connect ni terminate", () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              field: "calls",
+              value: {
+                metadata: { phone_number_id: "1" },
+                calls: [{ id: "wacid.1", event: "ringing" }],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(parsePayload(payload)).toEqual({ ok: true, messages: [], calls: [] });
+  });
+
+  it("un value de calls sin forma reconocible es error", () => {
+    const payload = { entry: [{ changes: [{ field: "calls", value: {} }] }] };
+    expect(parsePayload(payload).ok).toBe(false);
   });
 
   it("rechaza un payload que no tiene forma de Meta", () => {

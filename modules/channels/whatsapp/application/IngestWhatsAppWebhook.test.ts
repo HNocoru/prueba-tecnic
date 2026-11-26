@@ -3,16 +3,25 @@ import { describe, expect, it } from "vitest";
 import {
   accountUpdatePayload,
   audioPayload,
+  callConnectPayload,
+  callTerminatePayload,
   statusPayload,
   textPayload,
 } from "../testing/fixtures";
 import { InMemoryChannelStore } from "../testing/InMemory";
 import { IngestWhatsAppWebhook } from "./IngestWhatsAppWebhook";
+import type { CallEventSink } from "./ports";
 
 const TENANT = "tenant-1";
 const setup = () => {
   const store = new InMemoryChannelStore({ "1370925136115469": TENANT });
-  return { store, ingest: new IngestWhatsAppWebhook(store, store, store) };
+  const calls: { tenantId: string; event: unknown }[] = [];
+  const sink: CallEventSink = {
+    handle: async (tenantId, event) => {
+      calls.push({ tenantId, event });
+    },
+  };
+  return { store, calls, ingest: new IngestWhatsAppWebhook(store, store, store, sink) };
 };
 const raw = (o: unknown) => JSON.stringify(o);
 
@@ -102,6 +111,45 @@ describe("IngestWhatsAppWebhook", () => {
       processed: true,
       error: null,
     });
+  });
+
+  it("calls/connect delega en el módulo de llamadas con el tenant resuelto", async () => {
+    const { store, calls, ingest } = setup();
+    await ingest.execute(raw(callConnectPayload()));
+    expect(store.messages.size).toBe(0);
+    expect(calls).toEqual([
+      {
+        tenantId: TENANT,
+        event: expect.objectContaining({ waCallId: "wacid.CALL1", event: "connect" }),
+      },
+    ]);
+    expect(store.events.get("call:wacid.CALL1:connect")).toMatchObject({
+      tenantId: TENANT,
+      processed: true,
+      error: null,
+    });
+  });
+
+  it("calls/terminate se delega y se marca procesado", async () => {
+    const { store, calls, ingest } = setup();
+    await ingest.execute(raw(callTerminatePayload("wacid.CALL2")));
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ event: { waCallId: "wacid.CALL2", event: "terminate" } });
+    expect(store.events.get("call:wacid.CALL2:terminate")?.processed).toBe(true);
+  });
+
+  it("calls/connect con phone_number_id desconocido no delega y registra el error", async () => {
+    const store = new InMemoryChannelStore({});
+    const calls: unknown[] = [];
+    const ingest = new IngestWhatsAppWebhook(store, store, store, {
+      handle: async (_tenantId, event) => {
+        calls.push(event);
+      },
+    });
+    await ingest.execute(raw(callConnectPayload()));
+    expect(calls).toHaveLength(0);
+    expect(store.events.get("call:wacid.CALL1:connect")).toMatchObject({ processed: false });
+    expect(store.events.get("call:wacid.CALL1:connect")?.error).toMatch(/phone_number_id/);
   });
 
   it("statuses y cuerpos inválidos se guardan como evento sin crear mensajes ni lanzar", async () => {
