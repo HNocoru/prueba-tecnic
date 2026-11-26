@@ -1,11 +1,20 @@
-import { PageHeader } from "@/components/molecules/PageHeader";
-import { EmptyState } from "@/components/molecules/EmptyState";
+import { Suspense } from "react";
 
-export default function InboxPage() {
+import { LoadingState } from "@/components/molecules/LoadingState";
+import { PageHeader } from "@/components/molecules/PageHeader";
+import { InboxScreen } from "@/components/organisms/InboxScreen";
+
+export default function InboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   return (
     <>
       <PageHeader title="Bandeja" description="Conversaciones y llamadas de tus contactos." />
-      <EmptyState message="Aún no hay conversaciones. Escribe al WhatsApp del negocio para crear la primera" />
+      <Suspense fallback={<LoadingState />}>
+        <InboxScreen searchParams={searchParams} />
+      </Suspense>
     </>
   );
 }
