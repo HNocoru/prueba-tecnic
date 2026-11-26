@@ -30,3 +30,19 @@ export interface ContactStore {
     message: MessageInput,
   ): Promise<boolean>;
 }
+
+export interface StoredNumber {
+  phoneNumberId: string;
+  displayPhone: string | null;
+  status: string;
+}
+
+/** Persistencia de whatsapp_numbers (un número por tenant). */
+export interface WhatsAppNumberStore {
+  /** Inserta o reemplaza el número del tenant como "pending". "taken" si otro tenant ya lo usa. */
+  upsertPending(
+    tenantId: string,
+    number: { phoneNumberId: string; displayPhone: string },
+  ): Promise<"saved" | "taken">;
+  findByTenant(tenantId: string): Promise<StoredNumber | null>;
+}
