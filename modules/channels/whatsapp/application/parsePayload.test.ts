@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { audioPayload, statusPayload, textPayload } from "../testing/fixtures";
+import {
+  accountUpdatePayload,
+  audioPayload,
+  statusPayload,
+  textPayload,
+} from "../testing/fixtures";
 import { parsePayload } from "./parsePayload";
 
 describe("parsePayload", () => {
@@ -37,7 +42,18 @@ describe("parsePayload", () => {
     expect(result).toEqual({ ok: true, messages: [] });
   });
 
+  it("ignora account_update (WEBHOOK_CONFIG_UPDATED) sin mensajes", () => {
+    expect(parsePayload(accountUpdatePayload)).toEqual({ ok: true, messages: [] });
+  });
+
   it("rechaza un payload que no tiene forma de Meta", () => {
     expect(parsePayload({ foo: 1 }).ok).toBe(false);
+  });
+
+  it("un mensaje con value malformado sigue siendo error", () => {
+    const malformed = {
+      entry: [{ changes: [{ field: "messages", value: { metadata: {} } }] }],
+    };
+    expect(parsePayload(malformed).ok).toBe(false);
   });
 });

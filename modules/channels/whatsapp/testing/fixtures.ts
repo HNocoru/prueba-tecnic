@@ -29,6 +29,26 @@ export const textPayload = (wamid = "wamid.TEXT1") =>
 export const audioPayload = (wamid = "wamid.AUDIO1") =>
   payload({ id: wamid, type: "audio", audio: { id: "MEDIA123", mime_type: "audio/ogg" } });
 
+/** Meta lo envía al suscribir la app (campo account_update), no es un mensaje. */
+export const accountUpdatePayload = {
+  object: "whatsapp_business_account",
+  entry: [
+    {
+      id: "WABA",
+      time: 1767225600,
+      changes: [
+        {
+          field: "account_update",
+          value: {
+            messaging_product: "whatsapp",
+            event: "WEBHOOK_CONFIG_UPDATED",
+          },
+        },
+      ],
+    },
+  ],
+};
+
 export const statusPayload = {
   object: "whatsapp_business_account",
   entry: [

@@ -16,7 +16,7 @@ const message = z.object({
   document: media.optional(),
 });
 
-const value = z.object({
+const messageValue = z.object({
   metadata: z.object({ phone_number_id: z.string().min(1) }),
   contacts: z
     .array(
@@ -30,7 +30,12 @@ const value = z.object({
 });
 
 const payload = z.object({
-  entry: z.array(z.object({ changes: z.array(z.object({ value })) })),
+  entry: z.array(
+    z.object({
+      // field distingue mensajes/statuses ("messages") de avisos como "account_update".
+      changes: z.array(z.object({ field: z.string(), value: z.unknown() })),
+    }),
+  ),
 });
 
 export type ParseResult = { ok: true; messages: InboundMessage[] } | { ok: false; error: string };
@@ -42,14 +47,21 @@ function toE164(waId: string): string | null {
   return parsed?.isValid() ? parsed.number : null;
 }
 
-/** Valida el payload de Meta y extrae los mensajes entrantes (statuses y tipos no soportados se ignoran). */
+/**
+ * Valida el payload de Meta y extrae los mensajes entrantes.
+ * Se ignoran los cambios que no son de mensajes (p. ej. account_update) y los tipos no soportados.
+ */
 export function parsePayload(input: unknown): ParseResult {
   const parsed = payload.safeParse(input);
   if (!parsed.success) return { ok: false, error: "payload inválido" };
 
   const messages: InboundMessage[] = [];
   for (const entry of parsed.data.entry) {
-    for (const { value: v } of entry.changes) {
+    for (const change of entry.changes) {
+      if (change.field !== "messages") continue;
+      const parsedValue = messageValue.safeParse(change.value);
+      if (!parsedValue.success) return { ok: false, error: "payload inválido" };
+      const v = parsedValue.data;
       for (const m of v.messages ?? []) {
         const kind = m.type;
         if (kind !== "text" && kind !== "audio" && kind !== "image" && kind !== "document")

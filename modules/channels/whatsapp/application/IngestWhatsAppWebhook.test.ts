@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { audioPayload, statusPayload, textPayload } from "../testing/fixtures";
+import {
+  accountUpdatePayload,
+  audioPayload,
+  statusPayload,
+  textPayload,
+} from "../testing/fixtures";
 import { InMemoryChannelStore } from "../testing/InMemory";
 import { IngestWhatsAppWebhook } from "./IngestWhatsAppWebhook";
 
@@ -84,6 +89,19 @@ describe("IngestWhatsAppWebhook", () => {
     await ingest.execute(raw(textPayload()));
     expect(store.messages.size).toBe(1);
     expect(store.events.get("wamid.TEXT1")).toMatchObject({ processed: true, error: null });
+  });
+
+  it("account_update se registra como procesado sin error ni mensajes", async () => {
+    const { store, ingest } = setup();
+    await ingest.execute(raw(accountUpdatePayload));
+    expect(store.messages.size).toBe(0);
+    expect(store.contacts.size).toBe(0);
+    expect(store.events.size).toBe(1);
+    expect([...store.events.values()][0]).toMatchObject({
+      tenantId: null,
+      processed: true,
+      error: null,
+    });
   });
 
   it("statuses y cuerpos inválidos se guardan como evento sin crear mensajes ni lanzar", async () => {
