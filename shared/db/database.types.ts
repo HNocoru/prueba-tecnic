@@ -23,7 +23,139 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "contacts": {
+            "assistant_configs": {
+                  Row: {
+                    "escalation_message": string | null,"greeting": string | null,"language": string,"mascot": NonNullable<Json>,"name": string,"tenant_id": string,"tone": string | null,"updated_at": string,"voice": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "escalation_message"?: string | null,"greeting"?: string | null,"language"?: string,"mascot"?: NonNullable<Json>,"name"?: string,"tenant_id": string,"tone"?: string | null,"updated_at"?: string,"voice"?: string | null
+                  }
+                  Update: {
+                    "escalation_message"?: string | null,"greeting"?: string | null,"language"?: string,"mascot"?: NonNullable<Json>,"name"?: string,"tenant_id"?: string,"tone"?: string | null,"updated_at"?: string,"voice"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "assistant_configs_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: true
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"business_hours": {
+                  Row: {
+                    "closes": string,"id": string,"opens": string,"tenant_id": string,"weekday": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "closes": string,"id"?: string,"opens": string,"tenant_id": string,"weekday": number
+                  }
+                  Update: {
+                    "closes"?: string,"id"?: string,"opens"?: string,"tenant_id"?: string,"weekday"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "business_hours_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: false
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"business_profiles": {
+                  Row: {
+                    "address": string | null,"contact_phone": string | null,"description": string | null,"legal_name": string | null,"policies": string | null,"tenant_id": string,"timezone": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "address"?: string | null,"contact_phone"?: string | null,"description"?: string | null,"legal_name"?: string | null,"policies"?: string | null,"tenant_id": string,"timezone"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "address"?: string | null,"contact_phone"?: string | null,"description"?: string | null,"legal_name"?: string | null,"policies"?: string | null,"tenant_id"?: string,"timezone"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "business_profiles_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: true
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"call_turns": {
+                  Row: {
+                    "call_id": string,"id": string,"position": number,"role": string,"tenant_id": string,"text": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "call_id": string,"id"?: string,"position": number,"role": string,"tenant_id": string,"text": string
+                  }
+                  Update: {
+                    "call_id"?: string,"id"?: string,"position"?: number,"role"?: string,"tenant_id"?: string,"text"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "call_turns_tenant_id_call_id_fkey"
+      columns: ["tenant_id","call_id"]
+isOneToOne: false
+      referencedRelation: "calls"
+      referencedColumns: ["tenant_id","id"]
+    },{
+      foreignKeyName: "call_turns_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: false
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"calls": {
+                  Row: {
+                    "conversation_id": string,"duration_seconds": number | null,"ended_at": string | null,"id": string,"outcome": string | null,"started_at": string,"summary": string | null,"tenant_id": string,"wa_call_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "conversation_id": string,"duration_seconds"?: number | null,"ended_at"?: string | null,"id"?: string,"outcome"?: string | null,"started_at"?: string,"summary"?: string | null,"tenant_id": string,"wa_call_id"?: string | null
+                  }
+                  Update: {
+                    "conversation_id"?: string,"duration_seconds"?: number | null,"ended_at"?: string | null,"id"?: string,"outcome"?: string | null,"started_at"?: string,"summary"?: string | null,"tenant_id"?: string,"wa_call_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "calls_tenant_id_conversation_id_fkey"
+      columns: ["tenant_id","conversation_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
+      referencedColumns: ["tenant_id","id"]
+    },{
+      foreignKeyName: "calls_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: false
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"catalog_items": {
+                  Row: {
+                    "active": boolean,"created_at": string,"currency": string,"description": string | null,"id": string,"kind": string,"name": string,"price": number | null,"tenant_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "active"?: boolean,"created_at"?: string,"currency"?: string,"description"?: string | null,"id"?: string,"kind": string,"name": string,"price"?: number | null,"tenant_id": string
+                  }
+                  Update: {
+                    "active"?: boolean,"created_at"?: string,"currency"?: string,"description"?: string | null,"id"?: string,"kind"?: string,"name"?: string,"price"?: number | null,"tenant_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "catalog_items_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: false
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"contacts": {
                   Row: {
                     "attributes": NonNullable<Json>,"created_at": string,"id": string,"name": string | null,"phone_e164": string | null,"redacted_at": string | null,"tenant_id": string,"wa_id": string
                   }
@@ -37,6 +169,118 @@ export type Database = {
                   Relationships: [
                     {
       foreignKeyName: "contacts_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: false
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"conversations": {
+                  Row: {
+                    "contact_id": string,"id": string,"last_activity_at": string,"tenant_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "contact_id": string,"id"?: string,"last_activity_at"?: string,"tenant_id": string
+                  }
+                  Update: {
+                    "contact_id"?: string,"id"?: string,"last_activity_at"?: string,"tenant_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "conversations_tenant_id_contact_id_fkey"
+      columns: ["tenant_id","contact_id"]
+isOneToOne: true
+      referencedRelation: "contacts"
+      referencedColumns: ["tenant_id","id"]
+    },{
+      foreignKeyName: "conversations_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: false
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"faqs": {
+                  Row: {
+                    "answer": string,"id": string,"position": number,"question": string,"tenant_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "answer": string,"id"?: string,"position"?: number,"question": string,"tenant_id": string
+                  }
+                  Update: {
+                    "answer"?: string,"id"?: string,"position"?: number,"question"?: string,"tenant_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "faqs_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: false
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"messages": {
+                  Row: {
+                    "body": string | null,"conversation_id": string,"direction": string,"id": string,"kind": string,"media_path": string | null,"occurred_at": string,"tenant_id": string,"transcript": string | null,"wamid": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "body"?: string | null,"conversation_id": string,"direction": string,"id"?: string,"kind": string,"media_path"?: string | null,"occurred_at"?: string,"tenant_id": string,"transcript"?: string | null,"wamid"?: string | null
+                  }
+                  Update: {
+                    "body"?: string | null,"conversation_id"?: string,"direction"?: string,"id"?: string,"kind"?: string,"media_path"?: string | null,"occurred_at"?: string,"tenant_id"?: string,"transcript"?: string | null,"wamid"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "messages_tenant_id_conversation_id_fkey"
+      columns: ["tenant_id","conversation_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
+      referencedColumns: ["tenant_id","id"]
+    },{
+      foreignKeyName: "messages_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: false
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"profiles": {
+                  Row: {
+                    "age": number | null,"avatar_path": string | null,"full_name": string | null,"phone": string | null,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "age"?: number | null,"avatar_path"?: string | null,"full_name"?: string | null,"phone"?: string | null,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "age"?: number | null,"avatar_path"?: string | null,"full_name"?: string | null,"phone"?: string | null,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"requests": {
+                  Row: {
+                    "amount": number | null,"contact_id": string,"created_at": string,"id": string,"status": string,"tenant_id": string,"title": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount"?: number | null,"contact_id": string,"created_at"?: string,"id"?: string,"status"?: string,"tenant_id": string,"title": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "amount"?: number | null,"contact_id"?: string,"created_at"?: string,"id"?: string,"status"?: string,"tenant_id"?: string,"title"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "requests_tenant_id_contact_id_fkey"
+      columns: ["tenant_id","contact_id"]
+isOneToOne: false
+      referencedRelation: "contacts"
+      referencedColumns: ["tenant_id","id"]
+    },{
+      foreignKeyName: "requests_tenant_id_fkey"
       columns: ["tenant_id"]
 isOneToOne: false
       referencedRelation: "tenants"
@@ -76,6 +320,26 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"whatsapp_numbers": {
+                  Row: {
+                    "created_at": string,"display_phone": string | null,"id": string,"phone_number_id": string,"status": string,"tenant_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"display_phone"?: string | null,"id"?: string,"phone_number_id": string,"status"?: string,"tenant_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"display_phone"?: string | null,"id"?: string,"phone_number_id"?: string,"status"?: string,"tenant_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "whatsapp_numbers_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: true
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
                   ]
                 }
           }
