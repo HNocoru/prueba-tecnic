@@ -23,10 +23,26 @@ describe("env", () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+    process.env.WHATSAPP_APP_SECRET = "app-secret";
+    process.env.WHATSAPP_VERIFY_TOKEN = "verify-token";
+    delete process.env.WHATSAPP_ACCESS_TOKEN;
 
     const mod = await import("./env");
 
     expect(mod.clientEnv.NEXT_PUBLIC_SUPABASE_URL).toBe("https://example.supabase.co");
     expect(mod.serverEnv.SUPABASE_SERVICE_ROLE_KEY).toBe("service-role-key");
+    expect(mod.serverEnv.WHATSAPP_APP_SECRET).toBe("app-secret");
+    expect(mod.serverEnv.WHATSAPP_VERIFY_TOKEN).toBe("verify-token");
+    expect(mod.serverEnv.WHATSAPP_ACCESS_TOKEN).toBeUndefined();
+  });
+
+  it("falla si falta WHATSAPP_APP_SECRET o WHATSAPP_VERIFY_TOKEN, sin imprimir valores", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+    delete process.env.WHATSAPP_APP_SECRET;
+    delete process.env.WHATSAPP_VERIFY_TOKEN;
+
+    await expect(import("./env")).rejects.toThrow(/WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN/);
   });
 });

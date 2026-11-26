@@ -321,6 +321,26 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"webhook_events": {
+                  Row: {
+                    "error": string | null,"event_id": string,"id": string,"payload": NonNullable<Json>,"processed_at": string | null,"provider": string,"received_at": string,"tenant_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "error"?: string | null,"event_id": string,"id"?: string,"payload": NonNullable<Json>,"processed_at"?: string | null,"provider": string,"received_at"?: string,"tenant_id"?: string | null
+                  }
+                  Update: {
+                    "error"?: string | null,"event_id"?: string,"id"?: string,"payload"?: NonNullable<Json>,"processed_at"?: string | null,"provider"?: string,"received_at"?: string,"tenant_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "webhook_events_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: false
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"whatsapp_numbers": {
                   Row: {
                     "created_at": string,"display_phone": string | null,"id": string,"phone_number_id": string,"status": string,"tenant_id": string

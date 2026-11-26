@@ -32,3 +32,8 @@ VALUES ('00000000-0000-4000-8000-000000000001', 'Asistente', 'amable y cercano',
         '¡Hola! Soy el asistente de Negocio Demo, ¿en qué te puedo ayudar?',
         'Voy a canalizarte con una persona del equipo para atenderte mejor.')
 ON CONFLICT (tenant_id) DO NOTHING;
+
+-- Número de WhatsApp del tenant demo (sandbox de Meta; sin secretos).
+INSERT INTO public.whatsapp_numbers (tenant_id, phone_number_id, display_phone, status)
+VALUES ('00000000-0000-4000-8000-000000000001', '1370925136115469', '+15551652725', 'connected')
+ON CONFLICT (phone_number_id) DO NOTHING;

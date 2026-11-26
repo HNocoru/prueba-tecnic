@@ -11,6 +11,9 @@ import { clientEnv } from "./env.client";
 const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   SUPABASE_URL: z.string().url().optional(),
+  WHATSAPP_APP_SECRET: z.string().min(1),
+  WHATSAPP_VERIFY_TOKEN: z.string().min(1),
+  WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
 });
 
@@ -22,6 +25,9 @@ function parseServerEnv(): z.infer<typeof serverSchema> {
   const result = serverSchema.safeParse({
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     SUPABASE_URL: process.env.SUPABASE_URL,
+    WHATSAPP_APP_SECRET: process.env.WHATSAPP_APP_SECRET,
+    WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN,
+    WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN,
     LOG_LEVEL: process.env.LOG_LEVEL,
   });
 
