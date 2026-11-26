@@ -70,3 +70,18 @@ console.log(
         })),
   ),
 );
+
+// Configuración de llamadas del número (solo lectura). Con --calling-enable la activa.
+const PHONE_ID = "1370925136115469";
+if (args.includes("--calling-enable")) {
+  const out = await call(`/${PHONE_ID}/settings`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ calling: { status: "ENABLED" } }),
+  });
+  console.log("calling enable:", JSON.stringify(out));
+}
+console.log(
+  "Calling settings:",
+  JSON.stringify(await call(`/${PHONE_ID}/settings?fields=calling`)),
+);
