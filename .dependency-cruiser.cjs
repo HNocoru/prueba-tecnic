@@ -3,7 +3,7 @@
  * Regla 6 (cada tabla pertenece a un solo módulo) no es de imports: se revisa en las
  * migraciones y en el code review.
  */
-const OWN_INDEX = "^apps/web/modules/(?:channels/|agents/)?[^/]+/index\\.ts$";
+const OWN_INDEX = "^modules/(?:channels/|agents/)?[^/]+/index\\.ts$";
 const NPM = ["npm", "npm-dev", "npm-peer", "npm-optional", "npm-unknown", "npm-no-pkg"];
 const NOT_TEST = "\\.(test|spec)\\.tsx?$";
 
@@ -14,75 +14,83 @@ module.exports = {
       name: "1-domain-is-pure",
       comment: "domain/ no importa application, infraestructura ni app/",
       severity: "error",
-      from: { path: "^apps/web/modules/.+/domain/", pathNot: NOT_TEST },
-      to: { path: ["^apps/web/modules/.+/(infrastructure|application)/", "^apps/web/app/"] },
+      from: { path: "^modules/.+/domain/", pathNot: NOT_TEST },
+      to: { path: ["^modules/.+/(infrastructure|application)/", "^app/"] },
     },
     {
       name: "1b-domain-no-npm",
       comment: "domain/ no importa paquetes npm externos",
       severity: "error",
-      from: { path: "^apps/web/modules/.+/domain/", pathNot: NOT_TEST },
+      from: { path: "^modules/.+/domain/", pathNot: NOT_TEST },
       to: { dependencyTypes: NPM },
     },
     {
       name: "2-application-no-infrastructure",
       comment: "application/ solo conoce puertos, nunca adaptadores",
       severity: "error",
-      from: { path: "^apps/web/modules/.+/application/", pathNot: NOT_TEST },
-      to: { path: "^apps/web/modules/.+/infrastructure/" },
+      from: { path: "^modules/.+/application/", pathNot: NOT_TEST },
+      to: { path: "^modules/.+/infrastructure/" },
     },
     {
       name: "3-app-no-module-infrastructure",
       comment: "app/ (entradas delgadas) no importa modules/*/infrastructure",
       severity: "error",
-      from: { path: "^apps/web/app/" },
-      to: { path: "^apps/web/modules/.+/infrastructure/" },
+      from: { path: "^app/" },
+      to: { path: "^modules/.+/infrastructure/" },
     },
     {
       name: "4-modules-only-via-index",
       comment: "un módulo (carpeta plana) solo importa a otro por su index.ts",
       severity: "error",
-      from: { path: "^apps/web/modules/([^/]+)/", pathNot: "^apps/web/modules/(channels|agents)/" },
+      from: { path: "^modules/([^/]+)/", pathNot: "^modules/(channels|agents)/" },
       to: {
-        path: "^apps/web/modules/.+",
-        pathNot: ["^apps/web/modules/$1/", OWN_INDEX],
+        path: "^modules/.+",
+        pathNot: ["^modules/$1/", OWN_INDEX],
       },
     },
     {
       name: "4a-grouped-modules-only-via-index",
       comment: "un módulo agrupado (channels/*, agents/*) solo importa a otro por su index.ts",
       severity: "error",
-      from: { path: "^apps/web/modules/((?:channels|agents)/[^/]+)/" },
+      from: { path: "^modules/((?:channels|agents)/[^/]+)/" },
       to: {
-        path: "^apps/web/modules/.+",
-        pathNot: ["^apps/web/modules/$1/", OWN_INDEX],
+        path: "^modules/.+",
+        pathNot: ["^modules/$1/", OWN_INDEX],
       },
     },
     {
       name: "4b-app-only-via-index",
       comment: "app/ importa un módulo solo por su index.ts",
       severity: "error",
-      from: { path: "^apps/web/app/" },
+      from: { path: "^app/" },
       to: {
-        path: "^apps/web/modules/.+",
-        pathNot: "^apps/web/modules/(?:channels/|agents/)?[^/]+/(index|composition)\\.ts$",
+        path: "^modules/.+",
+        pathNot: "^modules/(?:channels/|agents/)?[^/]+/(index|composition)\\.ts$",
       },
     },
     {
       name: "5-provider-libs-only-in-infrastructure",
-      comment: "@supabase/* y los SDK de modelos solo en infrastructure/ o packages/ai",
+      comment: "@supabase/* y los SDK de modelos solo en infrastructure/ o shared/ai",
       severity: "error",
       from: {
-        path: "^apps/web/(app|modules)/",
-        pathNot: ["^apps/web/modules/.+/infrastructure/", NOT_TEST],
+        path: "^(app|modules)/",
+        pathNot: ["^modules/.+/infrastructure/", NOT_TEST],
       },
       to: { path: "node_modules/(@supabase/|@ai-sdk/|ai/)" },
+    },
+    {
+      name: "components-only-from-app",
+      comment:
+        "components/ solo lo importa app/ (o otros components); modules/ no depende de la UI",
+      severity: "error",
+      from: { path: "^modules/" },
+      to: { path: "^components/" },
     },
   ],
   options: {
     doNotFollow: { path: "node_modules" },
     exclude: { path: "(^|/)(\\.next|coverage)/" },
-    tsConfig: { fileName: "apps/web/tsconfig.json" },
+    tsConfig: { fileName: "tsconfig.json" },
     tsPreCompilationDeps: true,
     enhancedResolveOptions: {
       exportsFields: ["exports"],

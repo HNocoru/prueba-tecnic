@@ -2,7 +2,7 @@ import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@app/db";
+import type { Database } from "@/shared/db";
 import { cookies } from "next/headers";
 
 import { clientEnv } from "@/shared/env.client";

@@ -13,7 +13,7 @@ export function Sidebar() {
       </nav>
       <div className="mt-auto">
         {/* POST: cerrar sesión nunca debe dispararse con un enlace o prefetch */}
-        <form action="/auth/logout" method="post">
+        <form action="/api/auth/logout" method="post">
           <button
             type="submit"
             className="inline-flex w-full items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"

@@ -12,7 +12,7 @@ function normalizePathname(pathname: string): string {
 
 /** Rutas que se pueden visitar sin sesión. */
 function isPublicPath(pathname: string): boolean {
-  return pathname === LOGIN_PATH || pathname === "/auth" || pathname.startsWith("/auth/");
+  return pathname === LOGIN_PATH || pathname === "/api/auth" || pathname.startsWith("/api/auth/");
 }
 
 /**

@@ -35,7 +35,7 @@ para que una futura separación en servicios sea mecánica, pero no paga hoy su 
 Supabase: Postgres + Auth + Realtime + Storage
 ```
 
-Dos unidades desplegables, en dos repos: la app (repo `prueba-tecnic`, `apps/web`, Vercel) y el
+Dos unidades desplegables, en dos repos: la app (repo `prueba-tecnic`, raíz del repo, Vercel) y el
 worker (repo `pt-worker`, host de proceso siempre encendido, no Vercel; evitar planes gratuitos
 que "duermen"). `Decisión`
 
@@ -43,29 +43,28 @@ que "duermen"). `Decisión`
 
 ```
 repo/
-├─ apps/
-│  ├─ web/                        # Next.js
-│  │  ├─ app/                     # ENTRADAS (delgadas): páginas y route.ts
-│  │  ├─ components/              # UI con atomic design
-│  │  │  ├─ ui/                   # shadcn (generado)
-│  │  │  ├─ atoms/
-│  │  │  ├─ molecules/            # EmptyState, ErrorState, LoadingState
-│  │  │  └─ organisms/            # Sidebar
-│  │  ├─ shared/                  # común: env*, logger, supabase/{server,client}
-│  │  ├─ proxy.ts                 # entrada delgada: delega en modules/auth
-│  │  └─ modules/                 # LÓGICA: un módulo = un slice vertical
-│  │     ├─ auth/                 # login/logout/sesión (domain, application, infrastructure)
-│  │     ├─ conversations/        # contactos, conversación, timeline
-│  │     ├─ channels/whatsapp/    # parser de webhooks + envío por Graph API
-│  │     ├─ agents/text/          # caso de uso "responder mensaje"
-│  │     ├─ memory/               # ContextStore + resumen incremental
-│  │     ├─ calls/                # adaptador Telephony (aceptar llamada)
-│  │     └─ tenancy/              # resolver negocio por phone_number_id
-├─ packages/
-│  ├─ ai/                         # puertos LLM/STT + adaptadores + ProviderRouter
-│  ├─ prompts/                    # prompt base y plantillas de memoria
-│  └─ db/                         # tipos generados de Supabase
-├─ supabase/migrations/           # esquema, RLS y funciones RPC
+├─ app/                           # ENTRADAS (delgadas), lo que Next exige
+│  ├─ layout.tsx, globals.css, favicon.ico
+│  ├─ (web)/                      # entrada HTML: /, /login, /contacts
+│  └─ api/                        # entrada HTTP: health, auth/logout (y webhooks)
+├─ components/                    # UI con atomic design
+│  ├─ ui/                         # shadcn (generado)
+│  ├─ atoms/
+│  ├─ molecules/                  # EmptyState, ErrorState, LoadingState
+│  └─ organisms/                  # Sidebar
+├─ modules/                       # LÓGICA: un módulo = un slice vertical
+│  ├─ auth/                       # login/logout/sesión (domain, application, infrastructure)
+│  ├─ conversations/              # contactos, conversación, timeline
+│  ├─ channels/whatsapp/          # (futuro) parser de webhooks + envío por Graph API
+│  ├─ agents/text/                # (futuro) caso de uso "responder mensaje"
+│  ├─ memory/                     # (futuro) ContextStore + resumen incremental
+│  ├─ calls/                      # (futuro) adaptador Telephony
+│  └─ tenancy/                    # (futuro) resolver negocio por phone_number_id
+├─ shared/                        # común: env*, logger, supabase/{server,client}, db/ (tipos generados)
+├─ proxy.ts                       # entrada delgada: delega en modules/auth
+├─ public/
+├─ supabase/                      # migraciones (esquema, RLS, RPC), pruebas y seed
+├─ scripts/
 └─ docs/
 ```
 
@@ -83,7 +82,8 @@ Cada módulo: `domain/` (entidades y reglas, sin dependencias) → `application/
 2. `application/` no importa `infrastructure/`.
 3. `app/` (entradas) no importa `modules/*/infrastructure`.
 4. Un módulo solo importa a otro por su `index.ts`.
-5. Librerías de proveedor (`@supabase/*`, SDK de modelos) solo en `infrastructure/` o `packages/ai`.
+   Además, `modules/` no importa `components/` (solo `app/` los usa).
+5. Librerías de proveedor (`@supabase/*`, SDK de modelos) solo en `infrastructure/` o `shared/ai`.
 6. Cada tabla pertenece a un solo módulo; los demás piden los datos por su puerto.
 
 El worker es un repo aparte (`pt-worker`); el criterio con import-linter se aplica allí: núcleo
@@ -197,7 +197,7 @@ bloqueo optimista (`version`). No se usan embeddings. `Decisión`
 | 5   | Phonic por LiveKit entrega la transcripción turno por turno; los post-call webhooks pueden no emitirse para conversaciones por LiveKit/WebSocket (diseñar sin depender de ellos) | Slice 04            |
 | 6   | `after()` de Next en Vercel es confiable para el procesamiento diferido (si no, cron que reprocese `webhook_events`)                                                             | Slice 01            |
 | 7   | Los 10 concurrentes de Phonic Starter cuentan conexiones abiertas o minutos activos                                                                                              | Slice 07            |
-| 8   | El worker puede obtener y guardar datos solo por HTTP a `apps/web` con latencia aceptable (< ~800 ms en lecturas). El worker es repo `pt-worker`                                 | Slice 04            |
+| 8   | El worker puede obtener y guardar datos solo por HTTP a la app con latencia aceptable (< ~800 ms en lecturas). El worker es repo `pt-worker`                                     | Slice 04            |
 | 9   | Grabación y transcripción de llamadas: política de Meta no revisada                                                                                                              | Antes de la entrega |
 | 10  | Soporte UDP/puertos del host elegido para el worker (solo importa si se usa la ruta de contingencia)                                                                             | Solo si falla #1    |
 

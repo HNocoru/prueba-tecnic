@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@app/db";
+import type { Database } from "@/shared/db";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 

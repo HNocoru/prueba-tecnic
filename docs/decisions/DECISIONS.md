@@ -4,7 +4,9 @@ Decisiones y deudas registradas durante el slice 00 (docs/00-skeleton.md, odd/ta
 
 ## Decisiones
 
-- **App en este repo** (`apps/web` + `packages/db`, tipos generados de Supabase); **worker en repo aparte `pt-worker`**.
+- **App en este repo** (app única en la raíz; tipos generados de Supabase en `shared/db`); **worker en repo aparte `pt-worker`**.
+
+- **App única de Next.js en la raíz** con route groups `(web)` (HTML) y `api` (HTTP); `packages/db` pasa a `shared/db`. El logout pasa de `/auth/logout` a `/api/auth/logout`. Se descarta el monorepo porque el worker vive en un repo aparte. Nueva regla de arquitectura `components-only-from-app`: `modules/` no importa `components/`.
 
 - **Dos repos (app y worker)** por despliegues en hosts distintos (decisión del usuario).
 

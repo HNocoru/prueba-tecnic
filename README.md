@@ -8,7 +8,7 @@ terminó.
 
 - Next.js + TypeScript + Tailwind + shadcn/ui + Supabase (Postgres, Auth, Realtime, Storage) en Vercel.
 - Worker de voz en repo aparte `pt-worker` (Python, LiveKit Agents + Phonic), fuera de Vercel.
-- Monorepo pnpm con `apps/web` y `packages/db` (tipos generados de Supabase).
+- App única de Next.js en la raíz (`app/`, `modules/`, `components/`, `shared/`); tipos generados de Supabase en `shared/db`.
 
 ## Cómo correr el proyecto localmente (sin WhatsApp)
 

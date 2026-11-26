@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Tables } from "@app/db";
+import type { Database, Tables } from "@/shared/db";
 import { Contact } from "../domain/Contact";
 import type { ContactRepository } from "../application/ContactRepository";
 

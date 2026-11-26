@@ -24,6 +24,6 @@ describe("getAuthRedirect", () => {
   });
 
   it("trata las rutas de auth como públicas", () => {
-    expect(getAuthRedirect("/auth/callback", false)).toBeNull();
+    expect(getAuthRedirect("/api/auth/callback", false)).toBeNull();
   });
 });
