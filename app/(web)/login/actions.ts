@@ -26,5 +26,5 @@ export async function loginAction(
     return { error: result.error };
   }
 
-  redirect("/contacts");
+  redirect("/home");
 }

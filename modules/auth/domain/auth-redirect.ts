@@ -1,6 +1,6 @@
 const LOGIN_PATH = "/login";
-// En este slice la página principal del dashboard es /contacts.
-const HOME_PATH = "/contacts";
+// La página principal del dashboard es /home.
+const HOME_PATH = "/home";
 
 /** Normaliza la ruta para que "/login/" y "/login" se traten igual. */
 function normalizePathname(pathname: string): string {

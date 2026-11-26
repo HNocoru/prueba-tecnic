@@ -14,7 +14,7 @@ async function AuthGate({ children }: { children: ReactNode }) {
   return children;
 }
 
-export default function ContactsLayout({ children }: { children: ReactNode }) {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <Sidebar />

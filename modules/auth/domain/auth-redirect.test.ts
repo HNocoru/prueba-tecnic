@@ -16,11 +16,11 @@ describe("getAuthRedirect", () => {
   });
 
   it("redirige al inicio del dashboard cuando ya hay sesión y se visita el login", () => {
-    expect(getAuthRedirect("/login", true)).toBe("/contacts");
+    expect(getAuthRedirect("/login", true)).toBe("/home");
   });
 
   it("permite una ruta protegida cuando hay sesión", () => {
-    expect(getAuthRedirect("/contacts", true)).toBeNull();
+    expect(getAuthRedirect("/home", true)).toBeNull();
   });
 
   it("trata las rutas de auth como públicas", () => {
