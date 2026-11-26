@@ -13,6 +13,7 @@ export class InMemoryCallRepository implements CallRepository, CallWebhookReposi
   readonly turns = new Map<string, CallTurnInput[]>();
   readonly starts: { tenantId: string; event: CallWebhookEvent }[] = [];
   readonly terminations: { tenantId: string; waCallId: string; at: Date }[] = [];
+  private readonly byWaCallId = new Map<string, string>();
   lastEnd: EndCallInput | null = null;
   context: CallContextData = {
     business: {
@@ -47,10 +48,16 @@ export class InMemoryCallRepository implements CallRepository, CallWebhookReposi
     this.lastEnd = input;
   }
 
-  async startCall(tenantId: string, event: CallWebhookEvent): Promise<void> {
+  async startCall(
+    tenantId: string,
+    event: CallWebhookEvent,
+  ): Promise<{ callId: string; created: boolean }> {
     if (!event.waId) throw new Error("La llamada no trae wa_id del contacto");
+    const known = this.byWaCallId.get(event.waCallId);
+    if (known) return { callId: known, created: false };
     this.starts.push({ tenantId, event });
-    const id = `call-${this.starts.length}`;
+    const id = `00000000-0000-4000-8000-00000000000${this.starts.length}`;
+    this.byWaCallId.set(event.waCallId, id);
     this.calls.set(id, {
       id,
       tenantId,
@@ -58,6 +65,7 @@ export class InMemoryCallRepository implements CallRepository, CallWebhookReposi
       startedAt: event.occurredAt.toISOString(),
       endedAt: null,
     });
+    return { callId: id, created: true };
   }
 
   async endCall(tenantId: string, waCallId: string, at: Date): Promise<void> {

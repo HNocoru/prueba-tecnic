@@ -57,6 +57,10 @@ export interface CallWebhookEvent {
   readonly event: CallWebhookEventName;
   readonly waId: string | null;
   readonly occurredAt: Date;
+  /** phone_number_id de Meta del negocio que recibe la llamada. */
+  readonly phoneNumberId: string;
+  /** SDP offer de session.sdp; solo viene en connect. */
+  readonly sdpOffer: string | null;
 }
 
 export interface EndCallInput {

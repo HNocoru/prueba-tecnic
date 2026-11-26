@@ -16,6 +16,14 @@ const serverSchema = z.object({
   /** Secreto compartido con el worker de voz para /api/internal/*. */
   WORKER_API_TOKEN: z.string().min(1),
   WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
+  /**
+   * WhatsApp Connector de LiveKit Cloud. Opcionales para que el build y los entornos sin
+   * llamadas de voz arranquen; si faltan, un `connect` falla con un error claro (ver
+   * modules/calls/composition.ts) en lugar de romper la app entera.
+   */
+  LIVEKIT_URL: z.string().url().optional(),
+  LIVEKIT_API_KEY: z.string().min(1).optional(),
+  LIVEKIT_API_SECRET: z.string().min(1).optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
 });
 
@@ -31,6 +39,9 @@ function parseServerEnv(): z.infer<typeof serverSchema> {
     WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN,
     WORKER_API_TOKEN: process.env.WORKER_API_TOKEN,
     WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN,
+    LIVEKIT_URL: process.env.LIVEKIT_URL || undefined,
+    LIVEKIT_API_KEY: process.env.LIVEKIT_API_KEY || undefined,
+    LIVEKIT_API_SECRET: process.env.LIVEKIT_API_SECRET || undefined,
     LOG_LEVEL: process.env.LOG_LEVEL,
   });
 

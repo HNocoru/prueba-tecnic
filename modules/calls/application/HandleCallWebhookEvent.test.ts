@@ -1,21 +1,37 @@
 import { describe, expect, it } from "vitest";
 
+import type { CallWebhookEvent } from "../domain/Call";
+import { FakeWhatsAppCallGateway } from "../testing/FakeWhatsAppCallGateway";
 import { InMemoryCallRepository } from "../testing/InMemoryCallRepository";
 import { HandleCallWebhookEvent } from "./HandleCallWebhookEvent";
 
 const TENANT = "tenant-1";
 const at = new Date("2026-11-26T10:00:00.000Z");
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+const connect = (over: Partial<CallWebhookEvent> = {}): CallWebhookEvent => ({
+  waCallId: "wacid.CALL1",
+  event: "connect",
+  waId: "5215512345678",
+  occurredAt: at,
+  phoneNumberId: "PN1",
+  sdpOffer: "v=0 offer",
+  ...over,
+});
+const terminate = (over: Partial<CallWebhookEvent> = {}): CallWebhookEvent =>
+  connect({ event: "terminate", sdpOffer: null, ...over });
+
+function setup() {
+  const repo = new InMemoryCallRepository();
+  const gateway = new FakeWhatsAppCallGateway();
+  return { repo, gateway, handler: new HandleCallWebhookEvent(repo, gateway) };
+}
 
 describe("HandleCallWebhookEvent", () => {
   it("connect crea la llamada del tenant resuelto", async () => {
-    const repo = new InMemoryCallRepository();
+    const { repo, handler } = setup();
 
-    await new HandleCallWebhookEvent(repo).execute(TENANT, {
-      waCallId: "wacid.CALL1",
-      event: "connect",
-      waId: "5215512345678",
-      occurredAt: at,
-    });
+    await handler.execute(TENANT, connect());
 
     expect(repo.starts).toHaveLength(1);
     expect(repo.starts[0]).toMatchObject({
@@ -24,30 +40,68 @@ describe("HandleCallWebhookEvent", () => {
     });
   });
 
-  it("terminate cierra la llamada por wa_call_id", async () => {
-    const repo = new InMemoryCallRepository();
+  it("connect contesta por el Connector con el call_id interno (UUID) y el SDP offer", async () => {
+    const { gateway, handler } = setup();
 
-    await new HandleCallWebhookEvent(repo).execute(TENANT, {
+    await handler.execute(TENANT, connect());
+
+    expect(gateway.accepts).toHaveLength(1);
+    const accepted = gateway.accepts[0]!;
+    expect(accepted.callId).toMatch(UUID);
+    expect(accepted).toMatchObject({
       waCallId: "wacid.CALL1",
-      event: "terminate",
-      waId: "5215512345678",
-      occurredAt: at,
+      phoneNumberId: "PN1",
+      sdpOffer: "v=0 offer",
+      roomName: `call-${accepted.callId}`,
     });
+  });
+
+  it("un reintento de Meta (mismo wacid) no vuelve a contestar ni duplica la fila", async () => {
+    const { repo, gateway, handler } = setup();
+
+    await handler.execute(TENANT, connect());
+    await handler.execute(TENANT, connect());
+
+    expect(repo.starts).toHaveLength(1);
+    expect(gateway.accepts).toHaveLength(1);
+  });
+
+  it("connect sin SDP falla y no contesta", async () => {
+    const { gateway, handler } = setup();
+
+    await expect(handler.execute(TENANT, connect({ sdpOffer: null }))).rejects.toThrow(/sdp/i);
+    expect(gateway.accepts).toHaveLength(0);
+  });
+
+  it("si el Connector falla, el error sube para que la ingesta lo registre", async () => {
+    const { gateway, handler } = setup();
+    gateway.failAccept = new Error("livekit caído");
+
+    await expect(handler.execute(TENANT, connect())).rejects.toThrow("livekit caído");
+  });
+
+  it("terminate cierra la llamada por wa_call_id y cuelga en el Connector", async () => {
+    const { repo, gateway, handler } = setup();
+
+    await handler.execute(TENANT, terminate());
 
     expect(repo.terminations).toEqual([{ tenantId: TENANT, waCallId: "wacid.CALL1", at }]);
+    expect(gateway.disconnects).toEqual(["wacid.CALL1"]);
+  });
+
+  it("si colgar en el Connector falla, la fila ya quedó cerrada y no se propaga", async () => {
+    const { repo, gateway, handler } = setup();
+    gateway.failDisconnect = new Error("ya desconectada");
+
+    await expect(handler.execute(TENANT, terminate())).resolves.toBeUndefined();
+    expect(repo.terminations).toHaveLength(1);
   });
 
   it("connect sin wa_id falla para que la ingesta lo registre", async () => {
-    const repo = new InMemoryCallRepository();
+    const { repo, gateway, handler } = setup();
 
-    await expect(
-      new HandleCallWebhookEvent(repo).execute(TENANT, {
-        waCallId: "wacid.CALL1",
-        event: "connect",
-        waId: null,
-        occurredAt: at,
-      }),
-    ).rejects.toThrow(/wa_id/);
+    await expect(handler.execute(TENANT, connect({ waId: null }))).rejects.toThrow(/wa_id/);
     expect(repo.starts).toHaveLength(0);
+    expect(gateway.accepts).toHaveLength(0);
   });
 });

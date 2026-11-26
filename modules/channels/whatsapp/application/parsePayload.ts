@@ -37,6 +37,7 @@ const callDescriptor = z.object({
   from: z.string().optional(),
   wa_id: z.string().optional(),
   timestamp: z.string().optional(),
+  session: z.object({ sdp_type: z.string().optional(), sdp: z.string().min(1) }).optional(),
 });
 
 type CallDescriptor = z.infer<typeof callDescriptor>;
@@ -107,6 +108,7 @@ export function parsePayload(input: unknown): ParseResult {
             event: descriptor.event,
             waId: v.contacts?.[0]?.wa_id ?? descriptor.from ?? descriptor.wa_id ?? null,
             occurredAt: toDate(descriptor.timestamp ?? v.timestamp),
+            sdpOffer: descriptor.session?.sdp ?? null,
           });
         }
         continue;

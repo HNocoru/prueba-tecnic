@@ -9,4 +9,6 @@ export interface InboundCall {
   readonly event: "connect" | "terminate";
   readonly waId: string | null;
   readonly occurredAt: Date;
+  /** session.sdp (offer) del webhook connect; null en terminate. */
+  readonly sdpOffer: string | null;
 }

@@ -143,7 +143,10 @@ export class SupabaseCallRepository implements CallRepository, CallWebhookReposi
     if (error) throw new Error(`No se pudo cerrar la llamada: ${error.message}`);
   }
 
-  async startCall(tenantId: string, event: CallWebhookEvent): Promise<void> {
+  async startCall(
+    tenantId: string,
+    event: CallWebhookEvent,
+  ): Promise<{ callId: string; created: boolean }> {
     if (!event.waId) throw new Error("La llamada no trae wa_id del contacto");
     const occurredAt = event.occurredAt.toISOString();
 
@@ -166,16 +169,30 @@ export class SupabaseCallRepository implements CallRepository, CallWebhookReposi
       throw new Error(`No se pudo guardar la conversación: ${conversationError.message}`);
 
     // wa_call_id es único: un reintento de Meta no crea otra fila.
-    const { error: callError } = await this.db.from("calls").upsert(
-      {
-        tenant_id: tenantId,
-        conversation_id: conversation.id,
-        wa_call_id: event.waCallId,
-        started_at: occurredAt,
-      },
-      { onConflict: "wa_call_id", ignoreDuplicates: true },
-    );
+    // Con ignoreDuplicates, un reintento devuelve 0 filas: ahí se lee la existente.
+    const { data: inserted, error: callError } = await this.db
+      .from("calls")
+      .upsert(
+        {
+          tenant_id: tenantId,
+          conversation_id: conversation.id,
+          wa_call_id: event.waCallId,
+          started_at: occurredAt,
+        },
+        { onConflict: "wa_call_id", ignoreDuplicates: true },
+      )
+      .select("id");
     if (callError) throw new Error(`No se pudo crear la llamada: ${callError.message}`);
+    if (inserted && inserted.length > 0) return { callId: inserted[0]!.id, created: true };
+
+    const { data: existing, error: readError } = await this.db
+      .from("calls")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("wa_call_id", event.waCallId)
+      .single();
+    if (readError) throw new Error(`No se pudo leer la llamada: ${readError.message}`);
+    return { callId: existing.id, created: false };
   }
 
   async endCall(tenantId: string, waCallId: string, at: Date): Promise<void> {

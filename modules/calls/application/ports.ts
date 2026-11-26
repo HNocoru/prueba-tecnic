@@ -20,8 +20,29 @@ export interface CallRepository {
 
 /** Escritura de la fila calls a partir del webhook de Meta. */
 export interface CallWebhookRepository {
-  startCall(tenantId: string, event: CallWebhookEvent): Promise<void>;
+  /** `created` es false cuando la fila ya existía (reintento del webhook de Meta). */
+  startCall(
+    tenantId: string,
+    event: CallWebhookEvent,
+  ): Promise<{ callId: string; created: boolean }>;
   endCall(tenantId: string, waCallId: string, at: Date): Promise<void>;
+}
+
+/** Datos para contestar una llamada entrante; el token de Meta vive solo en el adaptador. */
+export interface AcceptCallInput {
+  /** UUID interno de calls.id; viaja al worker como metadata/atributo (call_id). */
+  readonly callId: string;
+  readonly waCallId: string;
+  readonly phoneNumberId: string;
+  readonly sdpOffer: string;
+  readonly roomName: string;
+}
+
+/** Puerto hacia el WhatsApp Connector de LiveKit (AcceptWhatsAppCall / DisconnectWhatsAppCall). */
+export interface WhatsAppCallGateway {
+  accept(input: AcceptCallInput): Promise<void>;
+  /** Cuelga el lado LiveKit tras el terminate de Meta. */
+  disconnect(waCallId: string): Promise<void>;
 }
 
 /** Latido del worker para el indicador de salud. */

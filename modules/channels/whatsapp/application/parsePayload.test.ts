@@ -60,6 +60,7 @@ describe("parsePayload", () => {
         event: "connect",
         waId: "5215512345678",
         occurredAt: new Date(1767225600 * 1000),
+        sdpOffer: "v=0 offer",
       },
     ]);
   });
@@ -69,6 +70,7 @@ describe("parsePayload", () => {
     expect(result.ok && result.calls[0]).toMatchObject({
       waCallId: "wacid.CALL9",
       event: "terminate",
+      sdpOffer: null,
     });
   });
 

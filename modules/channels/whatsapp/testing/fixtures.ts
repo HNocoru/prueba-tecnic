@@ -73,6 +73,9 @@ function callsPayload(event: string, waCallId = "wacid.CALL1"): Record<string, u
                   to: "15551652725",
                   event,
                   timestamp: "1767225600",
+                  ...(event === "connect"
+                    ? { session: { sdp_type: "offer", sdp: "v=0 offer" } }
+                    : {}),
                 },
               ],
             },
