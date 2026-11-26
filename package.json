@@ -17,7 +17,8 @@
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
     "db:types": "supabase gen types typescript --local > shared/db/database.types.ts",
-    "db:seed-user": "node --env-file-if-exists=.env scripts/seed-demo-user.mts"
+    "db:seed-user": "node --env-file-if-exists=.env scripts/seed-demo-user.mts",
+    "meta:check": "node --env-file-if-exists=.env scripts/meta-check.mts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.124",
