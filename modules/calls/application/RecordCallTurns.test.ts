@@ -9,6 +9,7 @@ const call = {
   conversationId: "conversation-1",
   startedAt: "2026-11-26T10:00:00.000Z",
   endedAt: null,
+  waCallId: "wacid.CALL1",
 };
 
 function repository(): InMemoryCallRepository {
@@ -42,6 +43,19 @@ describe("RecordCallTurns", () => {
     await useCase.execute("call-1", body(2, "Segundo"));
 
     expect(repo.turns.get("call-1")?.map((turn) => turn.seq)).toEqual([1, 2]);
+  });
+
+  it("reenviar el mismo turno dos veces (aunque sea en el mismo lote) deja una sola fila", async () => {
+    const repo = repository();
+    const useCase = new RecordCallTurns(repo);
+    const twice = { turns: [...body(1).turns, ...body(1, "Hola otra vez").turns] };
+
+    expect(await useCase.execute("call-1", twice)).toEqual({ ok: true });
+    expect(await useCase.execute("call-1", body(1))).toEqual({ ok: true });
+
+    expect(repo.turns.get("call-1")).toEqual([
+      { seq: 1, role: "user", text: "Hola", startedMs: 1200 },
+    ]);
   });
 
   it("rechaza un cuerpo inválido sin guardar", async () => {

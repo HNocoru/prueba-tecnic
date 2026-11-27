@@ -22,7 +22,7 @@ export class SupabaseCallRepository implements CallRepository, CallWebhookReposi
   async findCall(callId: string): Promise<StoredCall | null> {
     const { data, error } = await this.db
       .from("calls")
-      .select("id, tenant_id, conversation_id, started_at, ended_at")
+      .select("id, tenant_id, conversation_id, started_at, ended_at, wa_call_id")
       .eq("id", callId)
       .maybeSingle();
     if (error) throw new Error(`No se pudo leer la llamada: ${error.message}`);
@@ -33,6 +33,7 @@ export class SupabaseCallRepository implements CallRepository, CallWebhookReposi
       conversationId: data.conversation_id,
       startedAt: data.started_at,
       endedAt: data.ended_at,
+      waCallId: data.wa_call_id,
     };
   }
 
@@ -104,8 +105,8 @@ export class SupabaseCallRepository implements CallRepository, CallWebhookReposi
   }
 
   async insertTurns(tenantId: string, callId: string, turns: CallTurnInput[]): Promise<void> {
-    // call_turns no tiene UNIQUE(call_id, position): se filtran los seq ya guardados
-    // antes de insertar. Deuda: una migración debe añadir esa restricción.
+    // El filtro previo evita el viaje de escritura en reintentos; la garantía real es el
+    // índice único (call_id, position) con ON CONFLICT DO NOTHING (carreras entre reintentos).
     const { data: existing, error: readError } = await this.db
       .from("call_turns")
       .select("position")
@@ -125,7 +126,9 @@ export class SupabaseCallRepository implements CallRepository, CallWebhookReposi
       }));
     if (rows.length === 0) return;
 
-    const { error } = await this.db.from("call_turns").insert(rows);
+    const { error } = await this.db
+      .from("call_turns")
+      .upsert(rows, { onConflict: "call_id,position", ignoreDuplicates: true });
     if (error) throw new Error(`No se pudieron guardar los turnos: ${error.message}`);
   }
 
@@ -193,32 +196,5 @@ export class SupabaseCallRepository implements CallRepository, CallWebhookReposi
       .single();
     if (readError) throw new Error(`No se pudo leer la llamada: ${readError.message}`);
     return { callId: existing.id, created: false };
-  }
-
-  async endCall(tenantId: string, waCallId: string, at: Date): Promise<void> {
-    const { data, error } = await this.db
-      .from("calls")
-      .select("id, started_at, ended_at")
-      .eq("tenant_id", tenantId)
-      .eq("wa_call_id", waCallId)
-      .maybeSingle();
-    if (error) throw new Error(`No se pudo leer la llamada: ${error.message}`);
-    if (!data || data.ended_at) return;
-
-    const durationSeconds = Math.max(
-      0,
-      Math.round((at.getTime() - Date.parse(data.started_at)) / 1000),
-    );
-    const { error: updateError } = await this.db
-      .from("calls")
-      .update({
-        ended_at: at.toISOString(),
-        duration_seconds: durationSeconds,
-        // El worker puede corregir el motivo con /end; esto es el cierre best-effort del webhook.
-        outcome: "caller_hangup",
-      })
-      .eq("tenant_id", tenantId)
-      .eq("id", data.id);
-    if (updateError) throw new Error(`No se pudo cerrar la llamada: ${updateError.message}`);
   }
 }
