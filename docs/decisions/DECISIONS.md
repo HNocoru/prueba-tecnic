@@ -282,3 +282,23 @@ Decisiones y deudas del handoff `odd/handoffs/S06-inbox-redesign.md`.
   pruebas, build y la respuesta de las rutas, pero no se revisaron capturas ni interacción real.
 - **Riesgo heredado de S04:** la identidad verificada depende de que el matcher del proxy cubra toda ruta
   que use `requireUser()`; una ruta nueva fuera del matcher falla cerrado (redirige a login).
+
+## Pendientes de la primera llamada real (S09)
+
+- **Idempotencia de turnos en la BD:** índice único `(call_id, position)` en `call_turns` (la migración
+  elimina antes duplicados, conservando la fila más antigua) e inserción con `ON CONFLICT DO NOTHING`;
+  el filtro previo por `seq` se mantiene para evitar escrituras en reintentos.
+- **`terminate` de Meta no cierra la fila `calls`:** solo cuelga el lado LiveKit con `USER_INITIATED`
+  (best-effort). La fila se cierra con el `end` del worker, que trae motivo y duración.
+- **`end` con `time_limit`** (con o sin `hangup_failed`) cuelga con `BUSINESS_INITIATED`; si Meta ya
+  terminó la llamada se registra el error y se responde 200. Un `end` repetido no vuelve a colgar.
+
+### Deudas
+
+- **Sin cierre de respaldo si el worker no envía `end`:** la fila queda abierta; hace falta un barrido o
+  cierre por tiempo máximo.
+- **Resumen y memoria todavía no se generan** (slice 05); el `end` solo guarda motivo y duración.
+- **`hangup_failed` se guarda como texto en `error`:** `calls` no tiene columna `error`, así que hoy se
+  descarta al persistir y no hay alerta.
+- **Sin verificar contra Meta ni LiveKit reales:** la desconexión `BUSINESS_INITIATED` solo se probó con
+  dobles.
