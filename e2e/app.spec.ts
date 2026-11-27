@@ -105,7 +105,7 @@ test.describe("E2E - Flujos Existentes y Regresión Visual / Funcional", () => {
     await expect(searchInput).toBeVisible();
     await searchInput.fill("PruebaFiltroInexistenteXYZ123");
     await expect(
-      page.locator('text="No hay conversaciones que coincidan con la búsqueda."'),
+      page.locator('text="No hay conversaciones que coincidan con la búsqueda o el estado."'),
     ).toBeVisible();
 
     // Limpiar búsqueda
