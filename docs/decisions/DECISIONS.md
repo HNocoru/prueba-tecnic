@@ -584,3 +584,16 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   Reason: el 200 a Meta ya salió y ningún fallo de memoria debe provocar reintentos.
 - **Sin migraciones:** `updated_at` ya existía en `contact_memory` y `summary` en `calls`, así que el
   marcador y el historial de llamadas se usan sin tocar el esquema.
+
+## 2026-11-27 · Realtime tarda en recuperarse tras `supabase db reset`
+
+- **Hecho observado (validación 3):** justo después de `db reset` los dos tests de Realtime
+  (`inbox-pagination-tenancy` y `ai-requests`) agotan 40 s aun con 4 reintentos de suscripción y 20 s
+  de espera previa; en una segunda pasada inmediata pasan los 38 tests de integración (10 archivos).
+- **Causa probable (no confirmada):** el contenedor de Realtime se reinicia con el reset y tarda más
+  de un minuto en aceptar suscripciones. No hay evidencia de fuga entre negocios: el aislamiento
+  también se prueba por RLS en los demás tests, que pasan.
+- **Tratamiento:** tras un reset, correr la integración dos veces o esperar a que Realtime responda.
+  No se suben los reintentos ni los tiempos; eso ocultaría un fallo real.
+- **Regla operativa:** nunca resetear la base local mientras alguien prueba la app: borra los usuarios
+  y la sesión (cookie válida, usuario inexistente) produce "no tienes un negocio asignado".
