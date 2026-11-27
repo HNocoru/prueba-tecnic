@@ -1,6 +1,18 @@
 "use client";
 
 import { useActionState, useState } from "react";
+
+import { P5Icon } from "@/components/atoms/P5Icon";
+import {
+  p5ActionRowClass,
+  p5FieldClass,
+  p5LabelClass,
+  p5PrimaryButtonClass,
+  p5SecondaryButtonClass,
+  p5TextareaClass,
+} from "@/components/atoms/p5-styles";
+import { P5FormStatus } from "@/components/molecules/P5FormStatus";
+
 import { saveFaqsAction, type BusinessActionState } from "./actions";
 
 const initialState: BusinessActionState = { ok: false, message: null };
@@ -41,55 +53,53 @@ export function FaqsForm({ initialValues }: Props) {
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 max-w-4xl">
+    <form action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="faqs" value={JSON.stringify(rows)} />
       <div className="flex flex-col gap-3">
         {rows.map((row, index) => (
-          <div
-            key={index}
-            className="rounded-md border border-border bg-card p-3 flex flex-col gap-3"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium text-foreground">Pregunta {index + 1}</p>
-              <div className="flex gap-2">
+          <div key={index} className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-text">Pregunta {index + 1}</p>
+              <div className={p5ActionRowClass}>
                 <button
                   type="button"
                   onClick={() => move(index, -1)}
-                  className="rounded-md border border-border px-2 py-1 text-sm text-foreground hover:bg-surface"
+                  className={`${p5SecondaryButtonClass} h-11 w-11 justify-center px-0`}
                   aria-label={`Subir pregunta ${index + 1}`}
                 >
-                  Subir
+                  <P5Icon name="up" className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => move(index, 1)}
-                  className="rounded-md border border-border px-2 py-1 text-sm text-foreground hover:bg-surface"
+                  className={`${p5SecondaryButtonClass} h-11 w-11 justify-center px-0`}
                   aria-label={`Bajar pregunta ${index + 1}`}
                 >
-                  Bajar
+                  <P5Icon name="down" className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => removeRow(index)}
-                  className="rounded-md border border-border px-2 py-1 text-sm text-foreground hover:bg-surface"
+                  className={`${p5SecondaryButtonClass} h-11 w-11 justify-center px-0`}
+                  aria-label={`Borrar pregunta ${index + 1}`}
                 >
-                  Borrar
+                  <P5Icon name="trash" className="h-4 w-4" />
                 </button>
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-foreground" htmlFor={`q-${index}`}>
+              <label className={p5LabelClass} htmlFor={`q-${index}`}>
                 Pregunta
               </label>
               <input
                 id={`q-${index}`}
                 value={row.question}
                 onChange={(e) => updateRow(index, { question: e.target.value })}
-                className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+                className={p5FieldClass}
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-foreground" htmlFor={`a-${index}`}>
+              <label className={p5LabelClass} htmlFor={`a-${index}`}>
                 Respuesta
               </label>
               <textarea
@@ -97,36 +107,22 @@ export function FaqsForm({ initialValues }: Props) {
                 value={row.answer}
                 onChange={(e) => updateRow(index, { answer: e.target.value })}
                 rows={3}
-                className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+                className={p5TextareaClass}
               />
             </div>
           </div>
         ))}
       </div>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={addRow}
-          className="rounded-md border border-border px-4 py-2 text-sm text-foreground hover:bg-surface"
-        >
+      <div className={p5ActionRowClass}>
+        <button type="button" onClick={addRow} className={p5SecondaryButtonClass}>
+          <P5Icon name="plus" className="h-4 w-4" />
           Agregar pregunta
         </button>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-        >
+        <button type="submit" disabled={pending} className={p5PrimaryButtonClass}>
           {pending ? "Guardando..." : "Guardar preguntas frecuentes"}
         </button>
       </div>
-      {state.message ? (
-        <p
-          className={state.ok ? "text-sm text-status-done-fg" : "text-sm text-status-cancelled-fg"}
-          role="status"
-        >
-          {state.message}
-        </p>
-      ) : null}
+      <P5FormStatus message={state.message} ok={state.ok} />
     </form>
   );
 }

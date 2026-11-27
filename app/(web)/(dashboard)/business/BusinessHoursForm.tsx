@@ -1,6 +1,17 @@
 "use client";
 
 import { useActionState, useState } from "react";
+
+import { P5Icon } from "@/components/atoms/P5Icon";
+import {
+  p5ActionRowClass,
+  p5FieldClass,
+  p5LabelClass,
+  p5PrimaryButtonClass,
+  p5SecondaryButtonClass,
+} from "@/components/atoms/p5-styles";
+import { P5FormStatus } from "@/components/molecules/P5FormStatus";
+
 import { saveBusinessHoursAction, type BusinessActionState } from "./actions";
 
 const initialState: BusinessActionState = { ok: false, message: null };
@@ -30,21 +41,21 @@ export function BusinessHoursForm({ initialValues }: Props) {
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 max-w-3xl">
+    <form action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="hours" value={JSON.stringify(rows)} />
       <div className="flex flex-col gap-3">
         {rows.map((row, index) => (
           <div
             key={`${row.weekday}-${index}`}
-            className="grid grid-cols-1 gap-2 rounded-md border border-border bg-card p-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end"
+            className="grid grid-cols-1 gap-3 rounded-2xl bg-surface p-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end"
           >
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-foreground" htmlFor={`weekday-${index}`}>
+              <label className={p5LabelClass} htmlFor={`weekday-${index}`}>
                 Día
               </label>
               <select
                 id={`weekday-${index}`}
-                className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+                className={p5FieldClass}
                 value={row.weekday}
                 onChange={(e) => updateRow(index, { weekday: Number(e.target.value) })}
               >
@@ -56,25 +67,25 @@ export function BusinessHoursForm({ initialValues }: Props) {
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-foreground" htmlFor={`opens-${index}`}>
+              <label className={p5LabelClass} htmlFor={`opens-${index}`}>
                 Abre
               </label>
               <input
                 id={`opens-${index}`}
                 type="time"
-                className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+                className={p5FieldClass}
                 value={row.opens}
                 onChange={(e) => updateRow(index, { opens: e.target.value })}
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-foreground" htmlFor={`closes-${index}`}>
+              <label className={p5LabelClass} htmlFor={`closes-${index}`}>
                 Cierra
               </label>
               <input
                 id={`closes-${index}`}
                 type="time"
-                className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+                className={p5FieldClass}
                 value={row.closes}
                 onChange={(e) => updateRow(index, { closes: e.target.value })}
               />
@@ -82,37 +93,25 @@ export function BusinessHoursForm({ initialValues }: Props) {
             <button
               type="button"
               onClick={() => removeRow(index)}
-              className="rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-surface"
+              className={`relative ${p5SecondaryButtonClass} px-3 sm:w-11 sm:justify-center`}
+              aria-label={`Quitar horario ${index + 1}`}
             >
-              Quitar
+              <P5Icon name="trash" className="h-4 w-4 sm:hidden" />
+              <span className="sm:sr-only">Quitar</span>
             </button>
           </div>
         ))}
       </div>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={addRow}
-          className="rounded-md border border-border px-4 py-2 text-sm text-foreground hover:bg-surface"
-        >
+      <div className={p5ActionRowClass}>
+        <button type="button" onClick={addRow} className={p5SecondaryButtonClass}>
+          <P5Icon name="plus" className="h-4 w-4" />
           Agregar horario
         </button>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-        >
+        <button type="submit" disabled={pending} className={p5PrimaryButtonClass}>
           {pending ? "Guardando..." : "Guardar horarios"}
         </button>
       </div>
-      {state.message ? (
-        <p
-          className={state.ok ? "text-sm text-status-done-fg" : "text-sm text-status-cancelled-fg"}
-          role="status"
-        >
-          {state.message}
-        </p>
-      ) : null}
+      <P5FormStatus message={state.message} ok={state.ok} />
     </form>
   );
 }

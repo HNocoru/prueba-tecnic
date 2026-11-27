@@ -1,6 +1,17 @@
 "use client";
 
 import { useActionState, useState } from "react";
+
+import { P5Icon } from "@/components/atoms/P5Icon";
+import {
+  p5ActionRowClass,
+  p5FieldClass,
+  p5LabelClass,
+  p5PrimaryButtonClass,
+  p5SecondaryButtonClass,
+} from "@/components/atoms/p5-styles";
+import { P5FormStatus } from "@/components/molecules/P5FormStatus";
+
 import { saveCatalogItemsAction, type BusinessActionState } from "./actions";
 
 const initialState: BusinessActionState = { ok: false, message: null };
@@ -63,17 +74,19 @@ export function CatalogForm({ initialValues }: Props) {
   }));
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 max-w-4xl">
+    <form action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="items" value={JSON.stringify(payload)} />
       <div className="flex flex-col gap-3">
+        {rows.length === 0 ? (
+          <p className="rounded-2xl bg-surface p-4 text-sm text-text-2">
+            Todavía no agregas nada. Empieza con lo que más te preguntan.
+          </p>
+        ) : null}
         {rows.map((row, index) => (
-          <div
-            key={index}
-            className="rounded-md border border-border bg-card p-3 flex flex-col gap-3"
-          >
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div key={index} className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-foreground" htmlFor={`kind-${index}`}>
+                <label className={p5LabelClass} htmlFor={`kind-${index}`}>
                   Tipo
                 </label>
                 <select
@@ -82,41 +95,38 @@ export function CatalogForm({ initialValues }: Props) {
                   onChange={(e) =>
                     updateRow(index, { kind: e.target.value as "product" | "service" })
                   }
-                  className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+                  className={p5FieldClass}
                 >
                   <option value="product">Producto</option>
                   <option value="service">Servicio</option>
                 </select>
               </div>
-              <div className="flex flex-col gap-1 sm:col-span-1 lg:col-span-2">
-                <label className="text-sm font-medium text-foreground" htmlFor={`name-${index}`}>
+              <div className="flex flex-col gap-1 lg:col-span-2">
+                <label className={p5LabelClass} htmlFor={`name-${index}`}>
                   Nombre
                 </label>
                 <input
                   id={`name-${index}`}
                   value={row.name}
                   onChange={(e) => updateRow(index, { name: e.target.value })}
-                  className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+                  className={p5FieldClass}
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label
-                  className="text-sm font-medium text-foreground"
-                  htmlFor={`currency-${index}`}
-                >
+                <label className={p5LabelClass} htmlFor={`currency-${index}`}>
                   Moneda
                 </label>
                 <input
                   id={`currency-${index}`}
                   value={row.currency}
                   onChange={(e) => updateRow(index, { currency: e.target.value })}
-                  className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+                  className={p5FieldClass}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-foreground" htmlFor={`price-${index}`}>
+                <label className={p5LabelClass} htmlFor={`price-${index}`}>
                   Precio
                 </label>
                 <input
@@ -126,65 +136,54 @@ export function CatalogForm({ initialValues }: Props) {
                   step="0.01"
                   value={row.price}
                   onChange={(e) => updateRow(index, { price: e.target.value })}
-                  className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+                  className={p5FieldClass}
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-foreground" htmlFor={`desc-${index}`}>
+                <label className={p5LabelClass} htmlFor={`desc-${index}`}>
                   Descripción
                 </label>
                 <input
                   id={`desc-${index}`}
                   value={row.description}
                   onChange={(e) => updateRow(index, { description: e.target.value })}
-                  className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+                  className={p5FieldClass}
                 />
               </div>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <label className="flex items-center gap-2 text-sm text-foreground">
+              <label className="flex min-h-11 items-center gap-2 text-sm text-text">
                 <input
                   type="checkbox"
+                  className="h-5 w-5 accent-accent"
                   checked={row.active}
                   onChange={(e) => updateRow(index, { active: e.target.checked })}
                 />
-                Activo
+                Disponible
               </label>
               <button
                 type="button"
                 onClick={() => removeRow(index)}
-                className="rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-surface"
+                className={`${p5SecondaryButtonClass} px-3`}
+                aria-label={`Borrar elemento ${index + 1}`}
               >
+                <P5Icon name="trash" className="h-4 w-4" />
                 Borrar
               </button>
             </div>
           </div>
         ))}
       </div>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={addRow}
-          className="rounded-md border border-border px-4 py-2 text-sm text-foreground hover:bg-surface"
-        >
-          Agregar elemento
+      <div className={p5ActionRowClass}>
+        <button type="button" onClick={addRow} className={p5SecondaryButtonClass}>
+          <P5Icon name="plus" className="h-4 w-4" />
+          Agregar producto o servicio
         </button>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-        >
+        <button type="submit" disabled={pending} className={p5PrimaryButtonClass}>
           {pending ? "Guardando..." : "Guardar catálogo"}
         </button>
       </div>
-      {state.message ? (
-        <p
-          className={state.ok ? "text-sm text-status-done-fg" : "text-sm text-status-cancelled-fg"}
-          role="status"
-        >
-          {state.message}
-        </p>
-      ) : null}
+      <P5FormStatus message={state.message} ok={state.ok} />
     </form>
   );
 }
