@@ -1,4 +1,4 @@
-import { faqInputSchema } from "./validation";
+import { isBlankFaqRow, faqInputSchema } from "./validation";
 import type { BusinessRepository } from "./ports";
 import type { FaqInput } from "./validation";
 
@@ -12,6 +12,7 @@ export class SaveFaqs {
       return { ok: false, error: "Formato de preguntas frecuentes inválido." };
     const parsedFaqs: FaqInput[] = [];
     for (const item of input) {
+      if (isBlankFaqRow(item)) continue;
       const parsed = faqInputSchema.safeParse(item);
       if (!parsed.success) {
         return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };

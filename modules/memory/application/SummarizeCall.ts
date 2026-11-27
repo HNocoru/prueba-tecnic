@@ -6,7 +6,8 @@ import {
   MAX_TURNS,
   type ContactMemory,
 } from "../domain/ContactMemory";
-import { parseSummaryOutput, type ParsedSummary } from "./parseSummaryOutput";
+import { logger } from "@/shared/logger";
+import { parseSummaryOutputDetailed, type ParsedSummary } from "./parseSummaryOutput";
 import type { CallMemoryRepository, SummarizeResult, SummaryLlmPort } from "./ports";
 
 /** Texto acotado y con rol explícito; lo que diga el cliente nunca entra en el system prompt. */
@@ -53,8 +54,12 @@ export class SummarizeCall {
       return { status: "failed", reason: "llm_failed" };
     }
 
-    const parsed = parseSummaryOutput(raw);
-    if (!parsed) return { status: "failed", reason: "invalid_output" };
+    const result = parseSummaryOutputDetailed(raw);
+    if (!result.ok) {
+      logger.warn({ reason: result.reason }, "Resumen del LLM inválido");
+      return { status: "failed", reason: "invalid_output" };
+    }
+    const parsed = result.value;
 
     // El guard de calls.summary decide quién escribe: solo el ganador fusiona la memoria,
     // así dos ends en carrera no concatenan dos veces el mismo resumen.

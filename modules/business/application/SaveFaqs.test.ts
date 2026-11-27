@@ -37,4 +37,25 @@ describe("SaveFaqs", () => {
     expect(result).toEqual({ ok: true });
     expect(repo.replaceFaqs).toHaveBeenCalledWith("t1", faqs);
   });
+
+  it("ignora renglones totalmente vacíos y guarda los demás", async () => {
+    const repo = repoMock();
+    const faq = { question: "Q", answer: "A", position: 0 };
+    const result = await new SaveFaqs(repo).execute("t1", [
+      { question: "", answer: "", position: 0 },
+      faq,
+      { question: "  ", answer: " ", position: 2 },
+    ]);
+    expect(result).toEqual({ ok: true });
+    expect(repo.replaceFaqs).toHaveBeenCalledWith("t1", [faq]);
+  });
+
+  it("sigue rechazando un renglón con solo la pregunta", async () => {
+    const repo = repoMock();
+    const result = await new SaveFaqs(repo).execute("t1", [
+      { question: "Q", answer: "", position: 0 },
+    ]);
+    expect(result).toEqual({ ok: false, error: "La respuesta es obligatoria." });
+    expect(repo.replaceFaqs).not.toHaveBeenCalled();
+  });
 });

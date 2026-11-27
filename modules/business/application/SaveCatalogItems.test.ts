@@ -45,4 +45,39 @@ describe("SaveCatalogItems", () => {
     expect(result).toEqual({ ok: true });
     expect(repo.replaceCatalogItems).toHaveBeenCalledWith("t1", items);
   });
+
+  const blank = {
+    kind: "product",
+    name: "",
+    description: null,
+    price: null,
+    currency: "MXN",
+    active: true,
+  };
+  const valid = {
+    kind: "product" as const,
+    name: "A",
+    description: null,
+    price: 5,
+    currency: "MXN",
+    active: true,
+  };
+
+  it("ignora renglones totalmente vacíos y guarda los demás", async () => {
+    const repo = repoMock();
+    const result = await new SaveCatalogItems(repo).execute("t1", [
+      blank,
+      valid,
+      { ...blank, description: "  " },
+    ]);
+    expect(result).toEqual({ ok: true });
+    expect(repo.replaceCatalogItems).toHaveBeenCalledWith("t1", [valid]);
+  });
+
+  it("sigue rechazando un renglón parcialmente lleno", async () => {
+    const repo = repoMock();
+    const result = await new SaveCatalogItems(repo).execute("t1", [valid, { ...blank, price: 10 }]);
+    expect(result).toEqual({ ok: false, error: "El nombre es obligatorio." });
+    expect(repo.replaceCatalogItems).not.toHaveBeenCalled();
+  });
 });

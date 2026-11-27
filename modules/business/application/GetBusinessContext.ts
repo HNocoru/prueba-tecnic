@@ -24,13 +24,16 @@ export class GetBusinessContext {
         .slice()
         .sort((a, b) => a.weekday - b.weekday)
         .map((h) => ({ weekday: h.weekday, opens: h.opens, closes: h.closes })),
-      catalog: catalog.map((c) => ({
-        kind: c.kind,
-        name: c.name,
-        description: c.description,
-        price: c.price,
-        currency: c.currency,
-      })),
+      // Solo lo activo llega al texto y a la voz; lo inactivo no se ofrece al cliente.
+      catalog: catalog
+        .filter((c) => c.active)
+        .map((c) => ({
+          kind: c.kind,
+          name: c.name,
+          description: c.description,
+          price: c.price,
+          currency: c.currency,
+        })),
       faqs: faqs
         .slice()
         .sort((a, b) => a.position - b.position)

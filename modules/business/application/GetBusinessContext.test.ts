@@ -124,4 +124,39 @@ describe("GetBusinessContext", () => {
     const ctx = await uc.execute("tenant-1");
     expect(ctx.name).toBe("Asistente");
   });
+
+  it("excluye del contexto los productos inactivos", async () => {
+    const item = (id: string, active: boolean) => ({
+      id,
+      kind: "product" as const,
+      name: `P${id}`,
+      description: null,
+      price: 10,
+      currency: "MXN",
+      active,
+    });
+    const repo = new FakeBusinessRepository(
+      {
+        legalName: "N",
+        description: null,
+        address: null,
+        timezone: "UTC",
+        policies: null,
+        contactPhone: null,
+      },
+      [],
+      [item("1", true), item("2", false)],
+      [],
+      {
+        name: "Bot",
+        tone: null,
+        voice: "roberto",
+        language: "es",
+        greeting: null,
+        escalationMessage: null,
+      },
+    );
+    const ctx = await new GetBusinessContext(repo).execute("t");
+    expect(ctx.catalog.map((c) => c.name)).toEqual(["P1"]);
+  });
 });

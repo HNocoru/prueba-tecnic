@@ -1,4 +1,4 @@
-import { catalogItemInputSchema } from "./validation";
+import { isBlankCatalogRow, catalogItemInputSchema } from "./validation";
 import type { BusinessRepository } from "./ports";
 import type { CatalogItemInput } from "./validation";
 
@@ -11,6 +11,7 @@ export class SaveCatalogItems {
     if (!Array.isArray(input)) return { ok: false, error: "Formato de catálogo inválido." };
     const parsedItems: CatalogItemInput[] = [];
     for (const item of input) {
+      if (isBlankCatalogRow(item)) continue;
       const parsed = catalogItemInputSchema.safeParse(item);
       if (!parsed.success) {
         return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };

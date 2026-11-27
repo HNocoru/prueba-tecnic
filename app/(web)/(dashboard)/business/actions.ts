@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { logger } from "@/shared/logger";
 import { composeBusiness } from "@/modules/business/composition";
 
 export type BusinessActionState = { ok: boolean; message: string | null };
@@ -29,7 +30,15 @@ export async function saveBusinessProfileAction(
     if (!result.ok) return { ok: false, message: result.error };
     revalidatePath("/business");
     return { ok: true, message: "Perfil del negocio guardado." };
-  } catch {
+  } catch (error) {
+    logger.error(
+      {
+        action: "saveBusinessProfileAction",
+        name: error instanceof Error ? error.name : "unknown",
+        message: error instanceof Error ? error.message : String(error),
+      },
+      "Falló la acción de guardado",
+    );
     return { ok: false, message: "No se pudo guardar el perfil. Inténtalo de nuevo." };
   }
 }
@@ -54,7 +63,15 @@ export async function saveBusinessHoursAction(
     if (!result.ok) return { ok: false, message: result.error };
     revalidatePath("/business");
     return { ok: true, message: "Horarios guardados." };
-  } catch {
+  } catch (error) {
+    logger.error(
+      {
+        action: "saveBusinessHoursAction",
+        name: error instanceof Error ? error.name : "unknown",
+        message: error instanceof Error ? error.message : String(error),
+      },
+      "Falló la acción de guardado",
+    );
     return { ok: false, message: "No se pudieron guardar los horarios. Inténtalo de nuevo." };
   }
 }
@@ -70,7 +87,15 @@ export async function saveCatalogItemsAction(
     if (!result.ok) return { ok: false, message: result.error };
     revalidatePath("/business");
     return { ok: true, message: "Catálogo guardado." };
-  } catch {
+  } catch (error) {
+    logger.error(
+      {
+        action: "saveCatalogItemsAction",
+        name: error instanceof Error ? error.name : "unknown",
+        message: error instanceof Error ? error.message : String(error),
+      },
+      "Falló la acción de guardado",
+    );
     return { ok: false, message: "No se pudo guardar el catálogo. Inténtalo de nuevo." };
   }
 }
@@ -86,7 +111,15 @@ export async function saveFaqsAction(
     if (!result.ok) return { ok: false, message: result.error };
     revalidatePath("/business");
     return { ok: true, message: "Preguntas frecuentes guardadas." };
-  } catch {
+  } catch (error) {
+    logger.error(
+      {
+        action: "saveFaqsAction",
+        name: error instanceof Error ? error.name : "unknown",
+        message: error instanceof Error ? error.message : String(error),
+      },
+      "Falló la acción de guardado",
+    );
     return {
       ok: false,
       message: "No se pudieron guardar las preguntas frecuentes. Inténtalo de nuevo.",
