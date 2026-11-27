@@ -543,7 +543,6 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   `vitest.config.ts`. Reason: el handoff exige que `pnpm test` cuente pruebas nuevas y la configuración
   original solo descubría `modules/**` y `shared/**`; las pruebas mismas viven en `tests/`, dentro de
   la superficie permitida.
-  <<<<<<< ours
 
 ## 2026-11-27 · S21: tarjeta de conexión sin datos de plataforma
 
@@ -651,7 +650,6 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
 - **Decisión:** la lista vive en `inbox/layout.tsx` (no se re-renderiza al navegar); `[conversationId]/page.tsx` carga solo hilo y panel, con su propio `loading.tsx` (`ConversationViewSkeleton`). Verificado en navegador: el nodo de la lista conserva su identidad al cambiar de contacto. Caso e2e: "la lista no se desmonta".
 - **Formularios de negocio:** no envían renglones vacíos, muestran el resultado con `aria-live` junto al botón, avisan de cambios sin guardar (`beforeunload`) y conservan lo escrito tras guardar. Lógica pura en `components/atoms/form-draft.ts` con pruebas.
 - **No verificado:** la tabla antes/después de bytes de HTML/JS (el agente se quedó sin cuota) y el e2e completo en esta rama.
-  \=======
 - **Desbordamiento por tokens largos en resúmenes:** se añadió `break-words` al resumen en
   `CallCard`, `CallReportPanel` y `CallWindow`. Reason: `whitespace-pre-wrap` y `line-clamp-2`
   recortan visualmente, pero no parten una URL sin espacios; con datos reales de llamada el
@@ -665,4 +663,12 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   flotante; no se añadió ninguna biblioteca de UI ni archivo JS nuevo, y el diálogo nativo evita
   un mecanismo propio de foco. No es una medición de campo ni incluye caché o compresión.
 
-> > > > > > > theirs
+## 2026-11-27 · S28 · Snapshot del negocio dentro de la llamada
+
+- **Causa:** el worker pedía `GET /context` una sola vez con timeout de 3 s; si tardaba o fallaba, el
+  agente arrancaba genérico y decía no tener productos ni horarios.
+- **Decisión:** al contestar, la app arma el contexto con `GetCallContext` (tope de 2 s, errores
+  tragados) y lo envía en `agents[].metadata` como `{"call_id", "context"}`. Sobre 48 000 bytes UTF-8
+  se manda solo `call_id` con un aviso sin contenido. `GET /context` queda como respaldo y contrato.
+  El participante sigue llevando solo `call_id`.
+- **Idempotencia:** un reintento de Meta no vuelve a pedir snapshot ni a contestar.

@@ -46,6 +46,11 @@ export function createCallWebhookHandler(): HandleCallWebhookEvent {
   return new HandleCallWebhookEvent(
     new SupabaseCallRepository(createAdminClient()),
     composeWhatsAppCallGateway(),
+    // Reutiliza GetCallContext: el snapshot es exactamente lo que devuelve GET /context.
+    async (callId) => {
+      const result = await composeCallApi().getContext.execute(callId);
+      return result.ok ? result.context : null;
+    },
   );
 }
 

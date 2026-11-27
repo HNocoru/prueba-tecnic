@@ -35,6 +35,8 @@ export interface AcceptCallInput {
   readonly phoneNumberId: string;
   readonly sdpOffer: string;
   readonly roomName: string;
+  /** Mismo JSON que GET /context, ya armado; viaja en la metadata del despacho del agente. */
+  readonly contextSnapshot?: unknown;
 }
 
 export type DisconnectReason = "user_initiated" | "business_initiated";
