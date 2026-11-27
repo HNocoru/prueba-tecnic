@@ -10,6 +10,7 @@ import {
   encodeCursor,
 } from "@/modules/conversations";
 import { SupabaseConversationRepository } from "@/modules/conversations/infrastructure/SupabaseConversationRepository";
+import { subscribeWithRetry } from "./realtime-subscribe";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 // Llaves demo públicas de la CLI de Supabase local (no son secretos reales).
@@ -359,18 +360,13 @@ describe("Aislamiento de tenant con RLS", () => {
     async function subscribe(client: SupabaseClient, who: "demo" | "tenantB") {
       const { data } = await client.auth.getSession();
       await client.realtime.setAuth(data.session?.access_token ?? null);
-      await new Promise<void>((resolve, reject) => {
-        const channel = client
+      await subscribeWithRetry(client, () =>
+        client
           .channel(`rls-${who}-${wamid}`)
           .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (p) =>
             received[who].push(String((p.new as { wamid?: string }).wamid)),
-          )
-          .subscribe((status) => {
-            if (status === "SUBSCRIBED") resolve();
-            if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reject(new Error(status));
-          });
-        void channel;
-      });
+          ),
+      );
     }
 
     await subscribe(demoClient, "demo");

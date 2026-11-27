@@ -8,6 +8,7 @@ import { SupabaseAssistantStore } from "@/modules/assistant/infrastructure/Supab
 import { SupabaseRequestWriter } from "@/modules/assistant/infrastructure/SupabaseRequestWriter";
 import { BusinessContextReaderAdapter } from "@/modules/assistant/infrastructure/BusinessContextReaderAdapter";
 import { composeBusinessContextForService } from "@/modules/business";
+import { subscribeWithRetry } from "./realtime-subscribe";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const ANON_KEY =
@@ -250,27 +251,17 @@ describe("S20 integración: solicitudes desde IA", () => {
     async function subscribe(client: SupabaseClient, bucket: string[], label: string) {
       const { data } = await client.auth.getSession();
       await client.realtime.setAuth(data.session?.access_token ?? null);
-      await new Promise<void>((resolve, reject) => {
+      await subscribeWithRetry(client, () =>
         client
           .channel(`s20-req-${label}-${randomUUID()}`)
           .on("postgres_changes", { event: "INSERT", schema: "public", table: "requests" }, (p) => {
             bucket.push(String((p.new as { title?: string }).title ?? ""));
-          })
-          .subscribe((status) => {
-            if (status === "SUBSCRIBED") resolve();
-            if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reject(new Error(status));
-          });
-      });
+          }),
+      );
     }
 
-    try {
-      await subscribe(demoClientA, receivedA, "a");
-      await subscribe(clientB, receivedB, "b");
-    } catch (error) {
-      // Reporte explícito sin ocultar el entorno.
-      expect(String(error)).toContain("TIMED_OUT");
-      return;
-    }
+    await subscribe(demoClientA, receivedA, "a");
+    await subscribe(clientB, receivedB, "b");
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
     const { error } = await admin.from("requests").insert({
@@ -287,12 +278,6 @@ describe("S20 integración: solicitudes desde IA", () => {
       await expect.poll(() => receivedA, { timeout: 10000, interval: 250 }).toContain(marker);
       await new Promise((resolve) => setTimeout(resolve, 2000));
       expect(receivedB).not.toContain(marker);
-    } catch (error) {
-      if (String(error).includes("TIMED_OUT") || String(error).includes("poll")) {
-        // Entorno puede hacer TIMED_OUT; se reporta en la salida de test.
-        throw new Error(`TIMED_OUT realtime S20: ${String(error)}`);
-      }
-      throw error;
     } finally {
       await admin.from("requests").delete().eq("tenant_id", tenantA).eq("title", marker);
       await demoClientA.removeAllChannels();
