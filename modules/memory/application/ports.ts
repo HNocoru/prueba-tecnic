@@ -32,3 +32,26 @@ export type SummarizeResult =
   | { status: "summarized" }
   | { status: "skipped"; reason: "missing" | "no_turns" | "already_summarized" }
   | { status: "failed"; reason: "llm_failed" | "invalid_output" };
+
+/** updated_at crudo de la BD: comparar cadenas evita perder microsegundos al convertir a Date. */
+export interface ContactMemoryState {
+  readonly updatedAt: string | null;
+}
+
+/** Persistencia del resumen de texto; la marca gobierna el enfriamiento y la idempotencia. */
+export interface ConversationSummaryStore {
+  readMemoryState(tenantId: string, contactId: string): Promise<ContactMemoryState>;
+  readContactMemory(tenantId: string, contactId: string): Promise<ContactMemory>;
+  /** Escribe solo si la marca no cambió; false si otra petición ganó la carrera. */
+  saveContactMemoryIfUnchanged(
+    tenantId: string,
+    contactId: string,
+    expectedUpdatedAt: string | null,
+    memory: ContactMemory,
+  ): Promise<boolean>;
+}
+
+export type SummarizeConversationResult =
+  | { status: "summarized" }
+  | { status: "skipped"; reason: "no_turns" | "cooldown" | "conflict" }
+  | { status: "failed"; reason: "llm_failed" | "invalid_output" };

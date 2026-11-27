@@ -543,3 +543,25 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   `vitest.config.ts`. Reason: el handoff exige que `pnpm test` cuente pruebas nuevas y la configuración
   original solo descubría `modules/**` y `shared/**`; las pruebas mismas viven en `tests/`, dentro de
   la superficie permitida.
+
+## 2026-11-27 · S22: memoria compartida entre texto y voz
+
+- **Bloque de datos delimitado:** la memoria y el resumen de las últimas tres llamadas entran en
+  `<<DATOS_DEL_CLIENTE>> … <</DATOS_DEL_CLIENTE>>`, etiquetados como datos no instrucciones, con
+  1200 caracteres de resumen, 20 hechos y 200 caracteres por valor. Reason: el contenido viene de
+  texto del cliente; los delimitadores se eliminan del contenido para impedir que falsifique el cierre.
+  Sin memoria, `buildSystemPrompt` devuelve exactamente el prompt anterior.
+- **Un adaptador de lectura en `assistant`:** `SupabaseTextMemoryReader` lee `contact_memory`, las
+  llamadas resumidas y el conteo de mensajes con `tenant_id` y `contact_id` explícitos tomados de la
+  fila ya resuelta, nunca del texto entrante. Reason: la composición de texto no necesita conocer la
+  implementación de `modules/memory` y el service_role no deduce el tenant de la RLS.
+- **Umbral en el asistente, enfriamiento en memoria:** el asistente programa un resumen solo con 8
+  mensajes entrantes nuevos desde `contact_memory.updated_at`; `SummarizeConversation` reutiliza el
+  puerto LLM, `parseSummaryOutput`, `buildTranscript` y `mergeMemory`, aplica 10 minutos de
+  enfriamiento y hace CAS sobre `updated_at`. Reason: una sola fuente de verdad para la marca evita
+  duplicados cuando dos respuestas terminan al mismo tiempo.
+- **`after()` anidado es seguro:** el webhook ya usa `after()` y Next 16.4 permite anidar llamadas;
+  el programador registra solo el código fijo `S22_MEMORY_SUMMARY_FAILED`, nunca texto del cliente.
+  Reason: el 200 a Meta ya salió y ningún fallo de memoria debe provocar reintentos.
+- **Sin migraciones:** `updated_at` ya existía en `contact_memory` y `summary` en `calls`, así que el
+  marcador y el historial de llamadas se usan sin tocar el esquema.

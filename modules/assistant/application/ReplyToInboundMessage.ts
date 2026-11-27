@@ -7,10 +7,16 @@ import {
 } from "./requestClassification";
 import type {
   BusinessContextReader,
+  ContactMemoryReader,
+  ContactMemorySnapshot,
   ConversationHistoryReader,
+  ConversationSummaryScheduler,
   InboundMessageReader,
   LlmPort,
   MessageWriter,
+  NewMessageCounter,
+  RecentCallSummary,
+  RecentCallSummariesReader,
   ReplyEventStore,
   RequestWriter,
   WhatsAppSenderPort,
@@ -21,6 +27,7 @@ import { classifyInbound, TEXT_ONLY_REPLY, type ReplyResult } from "../domain/Re
 /** Tope por conversación y hora; configurable cambiando esta constante. */
 export const MAX_REPLIES_PER_HOUR = 20;
 export const HISTORY_LIMIT = 12;
+export const NEW_MESSAGES_FOR_SUMMARY = 8;
 const REPLY_WINDOW_MS = 60 * 60 * 1000;
 
 type Dependencies = {
@@ -32,6 +39,10 @@ type Dependencies = {
   messages: MessageWriter;
   events: ReplyEventStore;
   requests?: RequestWriter;
+  memory?: ContactMemoryReader;
+  recentCalls?: RecentCallSummariesReader;
+  newMessages?: NewMessageCounter;
+  summaryScheduler?: ConversationSummaryScheduler;
 };
 
 /**
@@ -65,6 +76,7 @@ export class ReplyToInboundMessage {
       }
 
       let body: string;
+      let memorySnapshot: ContactMemorySnapshot | null = null;
       let historyForClassification: { role: "user" | "assistant"; body: string }[] = [];
       if (decision.mode === "text_only") {
         body = TEXT_ONLY_REPLY;
@@ -78,7 +90,13 @@ export class ReplyToInboundMessage {
           ...history,
           { role: "user" as const, body: message.body ?? "" },
         ];
-        const system = buildSystemPrompt(context);
+        memorySnapshot = await this.readMemorySafely(tenantId, message.contactId);
+        const recent = await this.readRecentSafely(tenantId, message.contactId);
+        const system = buildSystemPrompt(context, {
+          summary: memorySnapshot?.summary ?? "",
+          facts: memorySnapshot?.facts ?? {},
+          recentCalls: recent ?? [],
+        });
         try {
           body = (await this.deps.llm.generate(system, historyForClassification)).trim();
           if (body.length === 0) throw new Error("respuesta vacía del LLM");
@@ -110,6 +128,13 @@ export class ReplyToInboundMessage {
         return { status: "failed", reason: "storage", error: detail };
       }
 
+      if (decision.mode !== "text_only") {
+        await this.scheduleSummary(tenantId, message.contactId, memorySnapshot, [
+          ...historyForClassification.map((turn) => ({ role: turn.role, text: turn.body })),
+          { role: "assistant" as const, text: body },
+        ]);
+      }
+
       await this.classifyAndWriteRequest(tenantId, conversationId, message.contactId, context, [
         ...historyForClassification,
         { role: "assistant" as const, body },
@@ -125,6 +150,50 @@ export class ReplyToInboundMessage {
         // No hay dónde registrar: el webhook ya respondió 200.
       }
       return { status: "failed", reason: "unconfigured", error: detail };
+    }
+  }
+
+  private async readMemorySafely(
+    tenantId: string,
+    contactId: string,
+  ): Promise<ContactMemorySnapshot | null> {
+    if (!this.deps.memory) return null;
+    try {
+      return await this.deps.memory.read(tenantId, contactId);
+    } catch {
+      return null;
+    }
+  }
+
+  private async readRecentSafely(
+    tenantId: string,
+    contactId: string,
+  ): Promise<RecentCallSummary[]> {
+    if (!this.deps.recentCalls) return [];
+    try {
+      return await this.deps.recentCalls.readRecent(tenantId, contactId, 3);
+    } catch {
+      return [];
+    }
+  }
+
+  /** Efecto secundario: nunca cambia la respuesta ya enviada ni el estado del webhook. */
+  private async scheduleSummary(
+    tenantId: string,
+    contactId: string,
+    snapshot: ContactMemorySnapshot | null,
+    turns: { role: "user" | "assistant"; text: string }[],
+  ): Promise<void> {
+    const scheduler = this.deps.summaryScheduler;
+    const counter = this.deps.newMessages;
+    if (!scheduler || !counter || !snapshot) return;
+    try {
+      const since = snapshot.updatedAt ? new Date(snapshot.updatedAt) : new Date(0);
+      const count = await counter.countInboundSince(tenantId, contactId, since);
+      if (count < NEW_MESSAGES_FOR_SUMMARY) return;
+      scheduler.schedule({ tenantId, contactId, turns });
+    } catch {
+      // Sin memoria no hay respuesta distinta: solo se omite el resumen.
     }
   }
 
