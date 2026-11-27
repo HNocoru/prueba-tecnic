@@ -33,9 +33,11 @@ function request(
     id,
     tenantId: owner,
     contactId: forContact,
+    conversationId: null,
     title: `Solicitud ${id}`,
     status,
     amount: 250,
+    source: "manual",
     createdAt,
     updatedAt: createdAt,
   };

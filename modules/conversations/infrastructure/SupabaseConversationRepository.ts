@@ -9,8 +9,8 @@ import type {
 import type { CursorPageOptions, CursorPageResult, PageCursor } from "../application/pagination";
 import type { CallDetail, CallTurn, CallTurnRole } from "../domain/CallDetail";
 import { Contact } from "../domain/Contact";
-import type { ContactRequest, RequestStatus } from "../domain/Request";
-import { REQUEST_STATUSES, latestRequest } from "../domain/Request";
+import type { ContactRequest, RequestSource, RequestStatus } from "../domain/Request";
+import { REQUEST_SOURCES, REQUEST_STATUSES, latestRequest } from "../domain/Request";
 import type {
   CallEntry,
   CallOutcome,
@@ -273,15 +273,23 @@ export class SupabaseConversationRepository implements ConversationRepository {
   }
 
   private toRequest(row: RequestRow): ContactRequest {
+    const rowWithAi = row as RequestRow & {
+      conversation_id?: string | null;
+      source?: string | null;
+    };
     return {
       id: row.id,
       tenantId: row.tenant_id,
       contactId: row.contact_id,
+      conversationId: rowWithAi.conversation_id ?? null,
       title: row.title,
       status: REQUEST_STATUSES.includes(row.status as RequestStatus)
         ? (row.status as RequestStatus)
         : "none",
       amount: row.amount,
+      source: REQUEST_SOURCES.includes(rowWithAi.source as RequestSource)
+        ? (rowWithAi.source as RequestSource)
+        : "manual",
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

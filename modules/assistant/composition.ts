@@ -5,6 +5,7 @@ import { ReplyToInboundMessage } from "./application/ReplyToInboundMessage";
 import { GroqLlmAdapter } from "./infrastructure/GroqLlmAdapter";
 import { GraphWhatsAppSender } from "./infrastructure/GraphWhatsAppSender";
 import { SupabaseAssistantStore } from "./infrastructure/SupabaseAssistantStore";
+import { SupabaseRequestWriter } from "./infrastructure/SupabaseRequestWriter";
 import { BusinessContextReaderAdapter } from "./infrastructure/BusinessContextReaderAdapter";
 import { composeBusinessContextForService } from "@/modules/business";
 
@@ -28,5 +29,6 @@ export function composeReplyToInboundMessage(): ReplyToInboundMessage {
     }),
     messages: store,
     events: store,
+    requests: new SupabaseRequestWriter(db),
   });
 }

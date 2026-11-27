@@ -263,14 +263,14 @@ isOneToOne: false
                   ]
                 },"requests": {
                   Row: {
-                    "amount": number | null,"contact_id": string,"created_at": string,"id": string,"status": string,"tenant_id": string,"title": string,"updated_at": string
+                    "amount": number | null,"contact_id": string,"conversation_id": string | null,"created_at": string,"id": string,"source": string,"status": string,"tenant_id": string,"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount"?: number | null,"contact_id": string,"created_at"?: string,"id"?: string,"status"?: string,"tenant_id": string,"title": string,"updated_at"?: string
+                    "amount"?: number | null,"contact_id": string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"source"?: string,"status"?: string,"tenant_id": string,"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "amount"?: number | null,"contact_id"?: string,"created_at"?: string,"id"?: string,"status"?: string,"tenant_id"?: string,"title"?: string,"updated_at"?: string
+                    "amount"?: number | null,"contact_id"?: string,"conversation_id"?: string | null,"created_at"?: string,"id"?: string,"source"?: string,"status"?: string,"tenant_id"?: string,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -278,6 +278,12 @@ isOneToOne: false
       columns: ["tenant_id","contact_id"]
 isOneToOne: false
       referencedRelation: "contacts"
+      referencedColumns: ["tenant_id","id"]
+    },{
+      foreignKeyName: "requests_tenant_conversation_fkey"
+      columns: ["tenant_id","conversation_id"]
+isOneToOne: false
+      referencedRelation: "conversations"
       referencedColumns: ["tenant_id","id"]
     },{
       foreignKeyName: "requests_tenant_id_fkey"

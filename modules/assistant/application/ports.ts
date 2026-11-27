@@ -1,6 +1,7 @@
 import type { BusinessContext } from "../domain/BusinessContext";
 import type { ConversationTurn } from "../domain/ConversationTurn";
 import type { StoredInboundMessage } from "../domain/Reply";
+import type { RequestWriter } from "./RequestWriter";
 
 /** Lectura del mensaje entrante ya guardado por el webhook (inboundMessageId es el wamid). */
 export interface InboundMessageReader {
@@ -44,3 +45,5 @@ export interface ReplyEventStore {
   markFailed(tenantId: string, inboundMessageId: string, error: string): Promise<void>;
   markProcessed(tenantId: string, inboundMessageId: string): Promise<void>;
 }
+
+export type { RequestWriter };

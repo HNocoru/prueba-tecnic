@@ -61,4 +61,22 @@ describe("GroqLlmAdapter", () => {
     const noModel = new GroqLlmAdapter({ apiKey: "k", model: undefined });
     await expect(noModel.generate("s", [])).rejects.toThrow("LLM_MODEL");
   });
+
+  it("quita defensivamente cualquier bloque <think>...</think> del contenido", async () => {
+    const adapter = new GroqLlmAdapter({
+      apiKey: "k",
+      model: "m",
+      fetchImpl: async () => ok("<think>razonamiento interno</think>\nRespuesta final"),
+    });
+    await expect(adapter.generate("s", [])).resolves.toBe("Respuesta final");
+  });
+
+  it("quita varios bloques think y trata respuesta vacía tras limpiar como error", async () => {
+    const adapter = new GroqLlmAdapter({
+      apiKey: "k",
+      model: "m",
+      fetchImpl: async () => ok("<think>uno</think><think>dos</think>   "),
+    });
+    await expect(adapter.generate("s", [])).rejects.toThrow("vacía");
+  });
 });

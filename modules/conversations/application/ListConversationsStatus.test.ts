@@ -13,9 +13,11 @@ function request(id: string, status: RequestStatus, createdAt: string): ContactR
     id,
     tenantId,
     contactId,
+    conversationId: null,
     title: `Solicitud ${id}`,
     status,
     amount: null,
+    source: "manual",
     createdAt,
     updatedAt: createdAt,
   };
