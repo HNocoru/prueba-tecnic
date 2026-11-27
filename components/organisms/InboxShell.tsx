@@ -109,11 +109,11 @@ export function InboxShell({
 
   return (
     <InboxPanesContext.Provider value={panes}>
-      <div className="relative grid min-h-[32rem] grid-cols-1 gap-4 md:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(14rem,18rem)]">
+      <div className="relative grid min-h-[32rem] min-w-0 grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(14rem,18rem)]">
         <div
           ref={listRef}
           tabIndex={-1}
-          className={`min-h-0 rounded-lg border border-border bg-card outline-none ${
+          className={`min-h-0 min-w-0 rounded-lg border border-border bg-card outline-none overflow-hidden ${
             mobilePane === "list" ? "flex" : "hidden"
           } md:flex`}
         >

@@ -142,7 +142,10 @@ export function ConversationList({
   const filtersActive = listState.query.trim().length > 0 || listState.status !== "all";
 
   return (
-    <section aria-label="Conversaciones" className="flex h-full min-h-0 flex-col">
+    <section
+      aria-label="Conversaciones"
+      className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden"
+    >
       <div className="space-y-2 border-b border-border p-3">
         <label htmlFor="conversation-search" className="sr-only">
           Buscar conversaciones por nombre o número
@@ -179,7 +182,7 @@ export function ConversationList({
         </div>
       </div>
 
-      <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
+      <ul className="min-h-0 min-w-0 flex-1 divide-y divide-border overflow-y-auto overflow-x-hidden">
         {visible.length === 0 ? (
           <li className="flex flex-col items-center gap-2 p-6 text-center">
             <p className="text-sm text-muted-foreground">
@@ -201,13 +204,15 @@ export function ConversationList({
           visible.map((item) => {
             const active = item.id === selectedId;
             return (
-              <li key={item.id}>
+              <li key={item.id} className="min-w-0">
                 <Link
                   href={hrefFor(item)}
                   aria-current={active ? "page" : undefined}
                   onClick={onSelect}
-                  className={`flex gap-3 p-3 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
-                    active ? "bg-accent text-accent-foreground" : ""
+                  className={`flex min-w-0 gap-3 p-3 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+                    active
+                      ? "bg-accent text-accent-foreground [&_.text-muted-foreground]:text-accent-foreground/85"
+                      : ""
                   }`}
                 >
                   <Avatar name={item.name} phone={item.phone} />
