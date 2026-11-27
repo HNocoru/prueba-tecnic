@@ -37,9 +37,33 @@ function repository(): InMemoryCallRepository {
   return repo;
 }
 
+const fakeBusinessContext = {
+  execute: async () => ({
+    name: "Estética Luna",
+    description: null,
+    address: null,
+    timezone: "America/Mexico_City",
+    policies: null,
+    contactPhone: null,
+    hours: [],
+    catalog: [],
+    faqs: [],
+    assistant: {
+      name: "Asistente",
+      tone: "cercano",
+      voice: "roberto" as const,
+      language: "es",
+      greeting: null,
+      escalationMessage: null,
+    },
+  }),
+};
+
 describe("GetCallContext", () => {
   it("arma la respuesta del contrato con snake_case y los límites fijos", async () => {
-    const result = await new GetCallContext(repository()).execute("call-1");
+    const result = await new GetCallContext(repository(), fakeBusinessContext as never).execute(
+      "call-1",
+    );
 
     expect(result).toEqual({
       ok: true,
@@ -69,7 +93,9 @@ describe("GetCallContext", () => {
   });
 
   it("devuelve not_found si la llamada no existe", async () => {
-    const result = await new GetCallContext(repository()).execute("no-existe");
+    const result = await new GetCallContext(repository(), fakeBusinessContext as never).execute(
+      "no-existe",
+    );
     expect(result).toEqual({ ok: false, error: "not_found" });
   });
 
@@ -77,7 +103,7 @@ describe("GetCallContext", () => {
     const repo = repository();
     repo.calls.set(call.id, { ...call, endedAt: "2026-11-26T10:05:00.000Z" });
 
-    const result = await new GetCallContext(repo).execute("call-1");
+    const result = await new GetCallContext(repo, fakeBusinessContext as never).execute("call-1");
 
     expect(result).toEqual({ ok: false, error: "ended" });
   });

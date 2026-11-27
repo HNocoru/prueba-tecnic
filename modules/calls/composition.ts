@@ -1,5 +1,6 @@
 import { serverEnv } from "@/shared/env.server";
 import { createAdminClient } from "@/shared/supabase/admin";
+import { GetBusinessContext, SupabaseBusinessRepository } from "@/modules/business";
 
 import { EndCall } from "./application/EndCall";
 import { GetCallContext } from "./application/GetCallContext";
@@ -21,9 +22,12 @@ export function composeCallApi(): {
   endCall: EndCall;
   heartbeat: RecordWorkerHeartbeat;
 } {
-  const repository = new SupabaseCallRepository(createAdminClient());
+  const adminDb = createAdminClient();
+  const repository = new SupabaseCallRepository(adminDb);
+  const businessRepository = new SupabaseBusinessRepository(adminDb);
+  const getBusinessContext = new GetBusinessContext(businessRepository);
   return {
-    getContext: new GetCallContext(repository),
+    getContext: new GetCallContext(repository, getBusinessContext),
     recordTurns: new RecordCallTurns(repository),
     endCall: new EndCall(repository, composeWhatsAppCallGateway()),
     heartbeat: new RecordWorkerHeartbeat(),
