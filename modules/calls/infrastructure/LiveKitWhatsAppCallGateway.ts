@@ -95,7 +95,21 @@ export class LiveKitWhatsAppCallGateway implements WhatsAppCallGateway {
     const codeText = typeof code === "string" ? code : "desconocido";
     const statusText = typeof status === "number" ? String(status) : "desconocido";
     return new Error(
-      `${operation} falló en el Connector de LiveKit (código ${codeText}, estado ${statusText})`,
+      `${operation} falló en el Connector de LiveKit (código ${codeText}, estado ${statusText}): ${this.redactedMessage(error)}`,
     );
+  }
+
+  /**
+   * Mensaje del Connector/Meta para diagnosticar, sin secretos: se tapa la clave exacta de
+   * configuración y toda cadena larga con aspecto de token o SDP, y se limita el largo.
+   */
+  private redactedMessage(error: unknown): string {
+    const raw = error instanceof Error ? error.message : "";
+    const key = this.config.whatsappApiKey;
+    const withoutKey = key ? raw.split(key).join("[oculto]") : raw;
+    return withoutKey
+      .replace(/[A-Za-z0-9_\-.]{32,}/g, "[oculto]")
+      .replace(/\s+/g, " ")
+      .slice(0, 240);
   }
 }

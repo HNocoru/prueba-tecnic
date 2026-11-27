@@ -108,4 +108,26 @@ describe("LiveKitWhatsAppCallGateway", () => {
     await expect(failure).rejects.toThrow(/estado 400/);
     await expect(failure).rejects.not.toThrow(SECRET);
   });
+
+  it("incluye el mensaje de Meta para diagnosticar, con tokens y cadenas largas tapados", async () => {
+    const { connector, gateway } = setup();
+    const longToken = "EAAG" + "x".repeat(60);
+    connector.acceptWhatsAppCall.mockRejectedValue(
+      Object.assign(new Error(`Call not found (code 190) key=${SECRET} other=${longToken}`), {
+        code: "invalid_argument",
+        status: 400,
+      }),
+    );
+
+    const failure = gateway.accept({
+      callId: CALL_ID,
+      waCallId: "w",
+      phoneNumberId: "p",
+      sdpOffer: "s",
+      roomName: "r",
+    });
+    await expect(failure).rejects.toThrow(/Call not found \(code 190\)/);
+    await expect(failure).rejects.not.toThrow(SECRET);
+    await expect(failure).rejects.not.toThrow(longToken);
+  });
 });
