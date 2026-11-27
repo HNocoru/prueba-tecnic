@@ -289,6 +289,29 @@ test.describe("Bandeja rediseñada (S06) — conversación, llamada y sesión", 
 
     expect(authCalls.length).toBeLessThanOrEqual(1);
   });
+
+  test("S25: al cambiar de conversación la lista no se desmonta ni vuelve al esqueleto", async ({
+    page,
+  }) => {
+    await page.goto("/inbox");
+    await expect(conversationItems(page).first()).toBeVisible();
+    await waitForLive(page);
+
+    // Marca el nodo de la lista: si se remonta, la marca desaparece.
+    await conversationItems(page)
+      .first()
+      .evaluate((item) => {
+        const list = item.parentElement as HTMLElement;
+        list.dataset.keep = "s25";
+      });
+
+    await conversationItems(page).filter({ hasText: SEED.bruno.name }).locator("a").click();
+    await page.waitForURL(new RegExp(`/inbox/${SEED.bruno.conversation}`));
+    await expect(CHAT(page).getByText("¿Pueden instalarlo el sábado?")).toBeVisible();
+
+    await expect(page.locator('[data-keep="s25"]')).toHaveCount(1);
+    await expect(conversationItems(page).first()).toBeVisible();
+  });
 });
 
 test.describe("Bandeja rediseñada (S06) — Realtime", () => {

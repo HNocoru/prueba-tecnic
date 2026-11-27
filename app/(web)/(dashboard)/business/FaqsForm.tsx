@@ -3,12 +3,14 @@
 import { useActionState, useState } from "react";
 
 import { P5Icon } from "@/components/atoms/P5Icon";
+import { dropBlankFaqRows, faqIssues } from "@/components/atoms/form-draft";
 import { p5ActionRowClass } from "@/components/atoms/p5-styles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { P5FormStatus } from "@/components/molecules/P5FormStatus";
+import { FieldError, FormFeedback, UnsavedChanges } from "@/components/molecules/FormFeedback";
+import { useDraftForm } from "@/components/molecules/use-draft-form";
 
 import { saveFaqsAction, type BusinessActionState } from "./actions";
 
@@ -49,63 +51,79 @@ export function FaqsForm({ initialValues }: Props) {
     });
   }
 
+  // Las preguntas totalmente vacías no se envían; las demás conservan su orden.
+  const payload = dropBlankFaqRows(rows);
+  const draft = useDraftForm({ payload, state, issues: faqIssues(rows) });
+
   return (
-    <form action={formAction} className="flex flex-col gap-4">
-      <input type="hidden" name="faqs" value={JSON.stringify(rows)} />
+    <form action={formAction} onSubmit={draft.handleSubmit} className="flex flex-col gap-4">
+      <input type="hidden" name="faqs" value={JSON.stringify(payload)} />
       <div className="flex flex-col gap-3">
-        {rows.map((row, index) => (
-          <div key={index} className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-text">Pregunta {index + 1}</p>
-              <div className={p5ActionRowClass}>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  type="button"
-                  onClick={() => move(index, -1)}
-                  aria-label={`Subir pregunta ${index + 1}`}
-                >
-                  <P5Icon name="up" className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  type="button"
-                  onClick={() => move(index, 1)}
-                  aria-label={`Bajar pregunta ${index + 1}`}
-                >
-                  <P5Icon name="down" className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  type="button"
-                  onClick={() => removeRow(index)}
-                  aria-label={`Borrar pregunta ${index + 1}`}
-                >
-                  <P5Icon name="trash" className="h-4 w-4" />
-                </Button>
+        {rows.map((row, index) => {
+          const questionError = draft.issueFor(index, "question");
+          const answerError = draft.issueFor(index, "answer");
+          return (
+            <div key={index} className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-text">Pregunta {index + 1}</p>
+                <div className={p5ActionRowClass}>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    type="button"
+                    onClick={() => move(index, -1)}
+                    aria-label={`Subir pregunta ${index + 1}`}
+                  >
+                    <P5Icon name="up" className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    type="button"
+                    onClick={() => move(index, 1)}
+                    aria-label={`Bajar pregunta ${index + 1}`}
+                  >
+                    <P5Icon name="down" className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    type="button"
+                    onClick={() => removeRow(index)}
+                    aria-label={`Borrar pregunta ${index + 1}`}
+                  >
+                    <P5Icon name="trash" className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`q-${index}`}>Pregunta</Label>
+                <Input
+                  id={`q-${index}`}
+                  value={row.question}
+                  onChange={(e) => updateRow(index, { question: e.target.value })}
+                  aria-invalid={questionError ? true : undefined}
+                  aria-describedby={questionError ? `q-error-${index}` : undefined}
+                  className={questionError ? "border-status-cancelled-fg" : undefined}
+                />
+                <FieldError id={`q-error-${index}`} message={questionError} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`a-${index}`}>Respuesta</Label>
+                <Textarea
+                  id={`a-${index}`}
+                  value={row.answer}
+                  onChange={(e) => updateRow(index, { answer: e.target.value })}
+                  rows={3}
+                  aria-invalid={answerError ? true : undefined}
+                  aria-describedby={answerError ? `a-error-${index}` : undefined}
+                  className={answerError ? "border-status-cancelled-fg" : undefined}
+                />
+                <FieldError id={`a-error-${index}`} message={answerError} />
               </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor={`q-${index}`}>Pregunta</Label>
-              <Input
-                id={`q-${index}`}
-                value={row.question}
-                onChange={(e) => updateRow(index, { question: e.target.value })}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor={`a-${index}`}>Respuesta</Label>
-              <Textarea
-                id={`a-${index}`}
-                value={row.answer}
-                onChange={(e) => updateRow(index, { answer: e.target.value })}
-                rows={3}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className={p5ActionRowClass}>
         <Button type="button" onClick={addRow} variant="secondary" size="sm">
@@ -115,8 +133,9 @@ export function FaqsForm({ initialValues }: Props) {
         <Button type="submit" disabled={pending}>
           {pending ? "Guardando..." : "Guardar preguntas frecuentes"}
         </Button>
+        <UnsavedChanges dirty={draft.dirty} />
       </div>
-      <P5FormStatus message={state.message} ok={state.ok} />
+      <FormFeedback feedback={draft.feedback} innerRef={draft.feedbackRef} />
     </form>
   );
 }

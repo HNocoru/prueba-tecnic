@@ -78,13 +78,34 @@ export function CallSessionSkeleton() {
   );
 }
 
-/** Esqueleto con la misma rejilla que InboxView para evitar saltos de layout. */
+/** Esqueleto del hilo y del panel de contacto: lo único que se recarga al cambiar de contacto. */
+export function ConversationViewSkeleton() {
+  return (
+    <>
+      <div
+        aria-busy="true"
+        aria-label="Cargando conversación"
+        className="flex min-h-0 flex-col rounded-lg border border-border bg-card"
+      >
+        <div className="border-b border-border p-3">
+          <div className="h-5 w-1/3 animate-pulse rounded bg-muted" />
+        </div>
+        <ConversationPaneSkeleton />
+      </div>
+      <div className="hidden rounded-lg border border-border bg-card xl:block">
+        <ContactPanelSkeleton />
+      </div>
+    </>
+  );
+}
+
+/** Esqueleto con la misma rejilla que InboxShell para evitar saltos de layout (carga inicial). */
 export function InboxSkeleton() {
   return (
     <div
       aria-busy="true"
       aria-label="Cargando bandeja"
-      className="grid min-h-[32rem] grid-cols-1 gap-4 md:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)] lg:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(14rem,16rem)]"
+      className="grid min-h-[32rem] grid-cols-1 gap-4 md:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(14rem,18rem)]"
     >
       <div className="hidden min-h-0 rounded-lg border border-border bg-card md:block">
         <ConversationListSkeleton />
@@ -95,7 +116,7 @@ export function InboxSkeleton() {
         </div>
         <ConversationPaneSkeleton />
       </div>
-      <div className="hidden rounded-lg border border-border bg-card lg:block">
+      <div className="hidden rounded-lg border border-border bg-card xl:block">
         <ContactPanelSkeleton />
       </div>
     </div>

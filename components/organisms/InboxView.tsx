@@ -13,12 +13,11 @@ import { TimelineFilterTabs } from "@/components/molecules/TimelineFilterTabs";
 import type { TimelineFilter } from "@/modules/conversations";
 
 import { CallWindow, type CallWindowView } from "./CallWindow";
-import { ConversationList, type StatusFilter } from "./ConversationList";
 import { INBOX_AI_FOOTER } from "./inbox-copy";
+import { useInboxPanes } from "./InboxShell";
 import type {
   CallSessionData,
   CallWindowSessionState,
-  ConversationListItem,
   ContactPanelData,
   InboxTimelineItem,
   MessagePageResult,
@@ -27,22 +26,12 @@ import type {
 export type { InboxTimelineItem } from "./inbox-types";
 
 export interface InboxViewProps {
-  items: ConversationListItem[];
-  nextConversationCursor: string | null;
   selectedId?: string;
   selectedName?: string;
   messages: InboxTimelineItem[];
   calls: InboxTimelineItem[];
   messagesNextCursor: string | null;
   contact: ContactPanelData | null;
-  filter: TimelineFilter;
-  query: string;
-  status: StatusFilter;
-  loadMoreConversations: (cursor: string) => Promise<{
-    items: ConversationListItem[];
-    nextCursor: string | null;
-    error?: "invalid-cursor";
-  }>;
   loadOlderMessages: (conversationId: string, cursor: string) => Promise<MessagePageResult>;
   loadCallSession: (
     callId: string,
@@ -50,8 +39,6 @@ export interface InboxViewProps {
     { ok: true; data: CallSessionData } | { ok: false; error: "not-found" | "load-failed" }
   >;
 }
-
-type MobilePane = "list" | "chat" | "details";
 
 const FALLBACK_CALL: CallCardData = {
   id: "",
@@ -68,31 +55,32 @@ type SessionState =
   | { status: "error" }
   | { status: "ready"; callId: string; data: CallSessionData };
 
-/** Bandeja de tres paneles. En móvil se muestra un panel a la vez, con vuelta atrás. */
+/**
+ * Hilo y panel de contacto de la bandeja. La lista vive en el layout (`InboxShell`) y
+ * no se vuelve a montar al cambiar de conversación; esta vista sí se recarga.
+ * En móvil se muestra un panel a la vez, con vuelta atrás.
+ */
 export function InboxView({
-  items,
-  nextConversationCursor,
   selectedId,
   selectedName,
   messages,
   calls,
   messagesNextCursor,
   contact,
-  filter,
-  query,
-  status,
-  loadMoreConversations,
   loadOlderMessages,
   loadCallSession,
 }: InboxViewProps) {
-  const [mobilePane, setMobilePane] = useState<MobilePane>(selectedId ? "chat" : "list");
-  const [filterState, setFilterState] = useState({ source: filter, value: filter });
+  const {
+    mobilePane,
+    setMobilePane,
+    timelineFilter: activeFilter,
+    setTimelineFilter,
+  } = useInboxPanes();
   const [selectedCall, setSelectedCall] = useState<CallCardData | null>(null);
   const [session, setSession] = useState<SessionState>({ status: "idle" });
   const [showSession, setShowSession] = useState(false);
   const [callView, setCallView] = useState<CallWindowView>("transcript");
 
-  const listRef = useRef<HTMLDivElement>(null);
   const chatRef = useRef<HTMLElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
   const sessionRequest = useRef<string | null>(null);
@@ -107,12 +95,6 @@ export function InboxView({
     setSession({ status: "idle" });
   }
 
-  // Si la navegación cambia el filtro de la URL (p. ej. el enlace del sidebar),
-  // se reajusta el estado local durante el render, sin un effect adicional.
-  if (filterState.source !== filter) {
-    setFilterState({ source: filter, value: filter });
-  }
-  const activeFilter = filterState.value;
   const callWindowState: CallWindowSessionState =
     session.status === "idle"
       ? { status: "idle" }
@@ -125,19 +107,20 @@ export function InboxView({
   // Al abrir o cambiar de conversación en móvil, el foco va al panel visible,
   // incluso cuando la navegación remonta la vista con `mobilePane` ya en "chat".
   useEffect(() => {
+    // El foco de la lista lo gestiona InboxShell, que es quien la monta.
     const target =
       mobilePane === "chat"
         ? chatRef.current
         : mobilePane === "details"
           ? detailsRef.current
-          : listRef.current;
+          : null;
     target?.focus({ preventScroll: true });
   }, [mobilePane, selectedId]);
 
   const closeCallWindow = useCallback(() => setShowSession(false), []);
 
   function handleFilterChange(next: TimelineFilter) {
-    setFilterState({ source: filter, value: next });
+    setTimelineFilter(next);
     // Refleja el filtro en la URL sin pedir otro render al servidor.
     const url = new URL(window.location.href);
     url.searchParams.set("filter", next);
@@ -188,26 +171,7 @@ export function InboxView({
   }
 
   return (
-    <div className="relative grid min-h-[32rem] grid-cols-1 gap-4 md:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(14rem,18rem)]">
-      <div
-        ref={listRef}
-        tabIndex={-1}
-        className={`min-h-0 rounded-lg border border-border bg-card outline-none ${
-          mobilePane === "list" ? "flex" : "hidden"
-        } md:flex`}
-      >
-        <ConversationList
-          items={items}
-          nextCursor={nextConversationCursor}
-          selectedId={selectedId}
-          initialQuery={query}
-          initialStatus={status}
-          filter={activeFilter}
-          loadMore={loadMoreConversations}
-          onSelect={() => setMobilePane("chat")}
-        />
-      </div>
-
+    <>
       <section
         ref={chatRef}
         tabIndex={-1}
@@ -317,7 +281,7 @@ export function InboxView({
         onViewChange={setCallView}
         onClose={closeCallWindow}
       />
-    </div>
+    </>
   );
 }
 
