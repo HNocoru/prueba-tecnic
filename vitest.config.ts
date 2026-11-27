@@ -13,7 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["modules/**/*.test.ts", "shared/**/*.test.ts", "tests/*.test.ts"],
+    include: ["modules/**/*.test.ts", "shared/**/*.test.ts", "tests/*.test.ts", "tests/*.test.tsx"],
     passWithNoTests: true,
     coverage: {
       provider: "v8",

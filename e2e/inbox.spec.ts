@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import {
@@ -222,7 +223,9 @@ test.describe("Bandeja rediseñada (S06) — conversación, llamada y sesión", 
       .getByRole("button", { name: "Ver sesión" })
       .click();
 
-    const session = page.locator('section[aria-label="Transcripción de la llamada"]');
+    const dialog = page.locator("dialog[open]");
+    const session = dialog.locator('section[aria-label="Transcripción de la llamada"]');
+    await expect(dialog).toBeVisible();
     await expect(session).toBeVisible();
     const turns = session.locator("ol > li");
     await expect(turns).toHaveCount(5);
@@ -242,14 +245,12 @@ test.describe("Bandeja rediseñada (S06) — conversación, llamada y sesión", 
     // Asistente a la derecha, cliente a la izquierda.
     await expect(turns.nth(0)).toHaveClass(/justify-end/);
     await expect(turns.nth(1)).toHaveClass(/justify-start/);
-    await expect(
-      page.getByRole("complementary", { name: "Reporte de la llamada" }).getByRole("button", {
-        name: "Viendo sesión",
-      }),
-    ).toBeVisible();
+    const report = page.getByRole("complementary", { name: "Reporte de la llamada" });
+    await expect(report.getByRole("button", { name: "Viendo sesión" })).toBeVisible();
+    await expect(report).toBeVisible();
 
     await session.getByRole("button", { name: "Volver a la conversación" }).click();
-    await expect(session).toHaveCount(0);
+    await expect(dialog).toHaveCount(0);
     await expect(CHAT(page).getByText("Hola, ¿sigue disponible el paquete premium?")).toBeVisible();
   });
 
@@ -398,7 +399,7 @@ test.describe("Bandeja rediseñada (S06) — móvil", () => {
       .click();
     await expect(CHAT(page)).toBeVisible();
 
-    // Tarjeta de llamada → reporte; Ver sesión → transcripción; atrás hasta la lista.
+    // Tarjeta de llamada → reporte; Ver sesión → transcripción flotante; atrás hasta la lista.
     await CHAT(page)
       .getByRole("button", { name: /Ver reporte de la llamada/ })
       .click();
@@ -406,27 +407,163 @@ test.describe("Bandeja rediseñada (S06) — móvil", () => {
     await expect(report).toBeVisible();
     await expect(CHAT(page)).toBeHidden();
     await report.getByRole("button", { name: "Ver sesión" }).click();
-    const session = page.locator('section[aria-label="Transcripción de la llamada"]');
-    await expect(session).toBeVisible();
-    await expect(report).toBeHidden();
-    await session.getByRole("button", { name: "Volver a la conversación" }).click();
+    const dialog = page.locator("dialog[open]");
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("heading", { name: "Transcripción de la llamada" }),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Volver a la conversación" }).click();
+    await expect(dialog).toHaveCount(0);
+    await report.getByRole("button", { name: "Volver", exact: true }).click();
     await expect(CHAT(page)).toBeVisible();
-
     await page.getByRole("button", { name: "Volver a chats" }).click();
     await expect(list).toBeVisible();
     await expect(CHAT(page)).toBeHidden();
   });
 
-  // HALLAZGO: al elegir un chat en móvil el foco NO pasa al panel de la conversación
-  // (InboxView solo enfoca cuando cambia mobilePane, y la navegación remonta la vista).
-  // test.fail() documenta el defecto sin debilitar la aserción: si se corrige, este test
-  // pasará "inesperadamente" y habrá que quitar test.fail().
   test("foco: al abrir un chat el foco pasa al panel de la conversación", async ({ page }) => {
-    test.fail(true, "Defecto conocido: el foco no se mueve al panel de la conversación en móvil");
     await login(page);
     await page.goto("/inbox");
     await conversationItems(page).filter({ hasText: SEED.ana.name }).locator("a").click();
     await page.waitForURL(new RegExp(`/inbox/${SEED.ana.conversation}`));
     await expect(CHAT(page)).toBeFocused({ timeout: 3000 });
+  });
+});
+
+test.describe("S16 · Bandeja Parte 4: tres anchos y ventana flotante de llamada", () => {
+  const widths = [390, 1024, 1440] as const;
+
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+  });
+
+  async function expectNoHorizontalOverflow(page: Page, label: string): Promise<void> {
+    const metrics = await page.evaluate(() => {
+      const root = document.documentElement;
+      const offenders = [...document.querySelectorAll("*")]
+        .filter((element) => {
+          const className = element.getAttribute("class") ?? "";
+          if (className.includes("sr-only")) {
+            return false;
+          }
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return (
+            (element.scrollWidth > element.clientWidth + 1 &&
+              element.clientWidth > 0 &&
+              style.overflowX !== "visible") ||
+            (rect.width > 0 && (rect.right > window.innerWidth + 1 || rect.left < -1))
+          );
+        })
+        .slice(0, 12)
+        .map((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            tag: element.tagName.toLowerCase(),
+            className: (element.getAttribute("class") ?? "").slice(0, 80),
+            scrollWidth: element.scrollWidth,
+            clientWidth: element.clientWidth,
+            right: Math.round(rect.right),
+            left: Math.round(rect.left),
+          };
+        });
+      return {
+        scrollWidth: root.scrollWidth,
+        clientWidth: root.clientWidth,
+        offenders,
+      };
+    });
+
+    expect(metrics.scrollWidth, `${label}: scrollWidth de html`).toBeLessThanOrEqual(
+      metrics.clientWidth,
+    );
+    expect(metrics.offenders, `${label}: elementos que desbordan`).toEqual([]);
+  }
+
+  for (const width of widths) {
+    test(`la bandeja a ${width}px muestra el pie y no añade composer`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await openChat(page, SEED.ana.conversation);
+      await waitForLive(page);
+
+      await expect(page.getByText("La IA responde automáticamente")).toBeVisible();
+      await expect(page.locator("textarea")).toHaveCount(0);
+      await expect(page.getByRole("textbox")).toHaveCount(0);
+      await expect(page.getByRole("status").filter({ hasText: "En vivo" })).toBeVisible();
+    });
+
+    test(`la bandeja y la llamada no desbordan horizontalmente a ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await openChat(page, SEED.ana.conversation);
+      await expectNoHorizontalOverflow(page, `bandeja ${width}px`);
+
+      await CHAT(page)
+        .getByRole("button", { name: /Ver reporte de la llamada/ })
+        .click();
+      await page.getByRole("button", { name: "Ver sesión" }).click();
+      const dialog = page.locator("dialog[open]");
+      await expect(dialog).toBeVisible();
+      await expectNoHorizontalOverflow(page, `llamada ${width}px`);
+    });
+
+    test(`axe sin violaciones serious/critical en la llamada a ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await openChat(page, SEED.ana.conversation);
+      await CHAT(page)
+        .getByRole("button", { name: /Ver reporte de la llamada/ })
+        .click();
+      await page.getByRole("button", { name: "Ver sesión" }).click();
+      await expect(page.locator("dialog[open]")).toBeVisible();
+
+      const results = await new AxeBuilder({ page }).analyze();
+      const severe = results.violations
+        .filter((violation) => violation.impact === "serious" || violation.impact === "critical")
+        .map(
+          (violation) =>
+            `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`,
+        );
+      expect(severe).toEqual([]);
+    });
+  }
+
+  test("la ventana de llamada se abre con teclado, atrapa foco, Escape cierra y conserva el hilo", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 500 });
+    await openChat(page, SEED.ana.conversation);
+    const thread = page.getByRole("region", { name: "Historial de la conversación" });
+    await thread.evaluate((element) => {
+      const spacer = document.createElement("div");
+      spacer.setAttribute("aria-hidden", "true");
+      spacer.style.height = "1200px";
+      element.appendChild(spacer);
+      element.scrollTop = 120;
+    });
+
+    await CHAT(page)
+      .getByRole("button", { name: /Ver reporte de la llamada/ })
+      .click();
+    const openButton = page.getByRole("button", { name: "Ver sesión" });
+    await openButton.focus();
+    const scrollBefore = await thread.evaluate((element) => element.scrollTop);
+    expect(scrollBefore).toBeGreaterThan(0);
+    await page.keyboard.press("Enter");
+
+    const dialog = page.locator("dialog[open]");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("heading", { level: 2 })).toBeFocused();
+    for (let index = 0; index < 8; index += 1) {
+      await page.keyboard.press("Tab");
+      const focusInside = await page.evaluate(() => {
+        const openDialog = document.querySelector("dialog[open]");
+        return openDialog !== null && openDialog.contains(document.activeElement);
+      });
+      expect(focusInside, `Tab ${index + 1} salió de la ventana de llamada`).toBe(true);
+    }
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(openButton).toBeFocused();
+    expect(await thread.evaluate((element) => element.scrollTop)).toBe(scrollBefore);
   });
 });

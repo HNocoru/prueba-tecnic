@@ -43,7 +43,7 @@ export function CallSession({ state }: { state: SessionState }) {
                 <p className="break-words whitespace-pre-wrap">{turn.text}</p>
                 <p
                   className={`mt-1 text-right text-[11px] ${
-                    assistant ? "text-primary-foreground/70" : "text-muted-foreground"
+                    assistant ? "text-primary-foreground" : "text-muted-foreground"
                   }`}
                 >
                   Turno {turn.position}

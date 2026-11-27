@@ -81,6 +81,9 @@ export function CallReportPanel({
           type="button"
           onClick={onViewSession}
           disabled={loading}
+          aria-haspopup="dialog"
+          aria-expanded={viewing}
+          aria-controls="call-window"
           className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {loading ? "Cargando sesión…" : viewing ? "Viendo sesión" : "Ver sesión"}

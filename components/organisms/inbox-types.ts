@@ -45,6 +45,12 @@ export interface CallSessionData {
 export type CallSessionResult =
   { ok: true; data: CallSessionData } | { ok: false; error: "not-found" | "load-failed" };
 
+export type CallWindowSessionState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready"; data: CallSessionData };
+
 export type InboxTimelineItem =
   ({ type: "message" } & MessageBubbleData) | ({ type: "call" } & CallCardData);
 

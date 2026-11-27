@@ -524,3 +524,22 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   (ausente en este worktree), que dejó `requests` en la publicación `supabase_realtime` y rompió
   `realtime_publication.test.sql`. Reason: no se modificó esa migración ni la publicación ajena;
   se reporta como fallo ambiental, no propio.
+
+## 2026-11-27 · S16: bandeja Parte 4 y ventana flotante de llamada
+
+- **Ventana flotante con `<dialog>` nativo:** `showModal()` aporta el modo, el atrape de foco y
+  Escape; el título recibe el foco al abrir. Reason: evita reimplementar un focus trap con variables
+  de estado y aprovecha el comportamiento del navegador para lectores de pantalla.
+- **Devolución de foco diferida:** el navegador restaura el foco por su cuenta al cerrar, por lo
+  que el botón que abrió la ventana se enfoca de nuevo tras un `setTimeout` corto. Reason: sin ese
+  segundo intento el foco queda en `body`, como se reprodujo en Chromium.
+- **Tres columnas solo desde `xl` (1280 px):** a 1024 px la lista y la conversación conviven y el
+  panel de contacto/reporte se superpone; en móvil se muestra un panel a la vez. Reason: coincide
+  con los artboards y evita comprimir la conversación en tres columnas a 1024 px.
+- **La transcripción ya no reemplaza al hilo:** al abrir "Ver sesión" se muestra un diálogo; el
+  historial queda montado y conserva su desplazamiento. Reason: el handoff pide preservar la posición
+  del hilo, y el reporte sigue visible como contexto.
+- **Excepción a la lista literal de superficies:** se añadió `tests/**/*.test.ts(x)` a `include` en
+  `vitest.config.ts`. Reason: el handoff exige que `pnpm test` cuente pruebas nuevas y la configuración
+  original solo descubría `modules/**` y `shared/**`; las pruebas mismas viven en `tests/`, dentro de
+  la superficie permitida.

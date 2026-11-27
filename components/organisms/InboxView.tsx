@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { formatDayKey, formatDayLabel } from "@/components/format";
 import { CallCard, type CallCardData } from "@/components/molecules/CallCard";
@@ -8,13 +8,16 @@ import { CallReportPanel } from "@/components/molecules/CallReportPanel";
 import { ContactPanel } from "@/components/molecules/ContactPanel";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { MessageBubble } from "@/components/molecules/MessageBubble";
+import { StatusBadge } from "@/components/molecules/StatusBadge";
 import { TimelineFilterTabs } from "@/components/molecules/TimelineFilterTabs";
 import type { TimelineFilter } from "@/modules/conversations";
 
-import { CallSession } from "./CallSession";
+import { CallWindow, type CallWindowView } from "./CallWindow";
 import { ConversationList, type StatusFilter } from "./ConversationList";
+import { INBOX_AI_FOOTER } from "./inbox-copy";
 import type {
   CallSessionData,
+  CallWindowSessionState,
   ConversationListItem,
   ContactPanelData,
   InboxTimelineItem,
@@ -50,6 +53,15 @@ export interface InboxViewProps {
 
 type MobilePane = "list" | "chat" | "details";
 
+const FALLBACK_CALL: CallCardData = {
+  id: "",
+  startedAt: "1970-01-01T00:00:00.000Z",
+  endedAt: null,
+  durationSeconds: null,
+  outcome: null,
+  summary: null,
+};
+
 type SessionState =
   | { status: "idle" }
   | { status: "loading" }
@@ -78,11 +90,11 @@ export function InboxView({
   const [selectedCall, setSelectedCall] = useState<CallCardData | null>(null);
   const [session, setSession] = useState<SessionState>({ status: "idle" });
   const [showSession, setShowSession] = useState(false);
+  const [callView, setCallView] = useState<CallWindowView>("transcript");
 
   const listRef = useRef<HTMLDivElement>(null);
   const chatRef = useRef<HTMLElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
-  const previousPane = useRef<MobilePane>(mobilePane);
   const sessionRequest = useRef<string | null>(null);
 
   // Si la navegación cambia la conversación, se cierran reporte y transcripción.
@@ -91,6 +103,7 @@ export function InboxView({
     setActiveConversation(selectedId);
     setSelectedCall(null);
     setShowSession(false);
+    setCallView("transcript");
     setSession({ status: "idle" });
   }
 
@@ -100,21 +113,28 @@ export function InboxView({
     setFilterState({ source: filter, value: filter });
   }
   const activeFilter = filterState.value;
+  const callWindowState: CallWindowSessionState =
+    session.status === "idle"
+      ? { status: "idle" }
+      : session.status === "ready"
+        ? { status: "ready", data: session.data }
+        : session.status === "error"
+          ? { status: "error" }
+          : { status: "loading" };
 
-  // Al cambiar de panel en móvil, el foco va al panel destino (no al botón oculto).
+  // Al abrir o cambiar de conversación en móvil, el foco va al panel visible,
+  // incluso cuando la navegación remonta la vista con `mobilePane` ya en "chat".
   useEffect(() => {
-    if (previousPane.current === mobilePane) {
-      return;
-    }
-    previousPane.current = mobilePane;
     const target =
       mobilePane === "chat"
         ? chatRef.current
         : mobilePane === "details"
           ? detailsRef.current
           : listRef.current;
-    target?.focus();
-  }, [mobilePane]);
+    target?.focus({ preventScroll: true });
+  }, [mobilePane, selectedId]);
+
+  const closeCallWindow = useCallback(() => setShowSession(false), []);
 
   function handleFilterChange(next: TimelineFilter) {
     setFilterState({ source: filter, value: next });
@@ -137,7 +157,7 @@ export function InboxView({
     }
 
     setShowSession(true);
-    setMobilePane("chat");
+    setCallView("transcript");
     if (session.status === "ready" && session.callId === call.id) {
       return;
     }
@@ -162,12 +182,13 @@ export function InboxView({
   function handleClearCall() {
     setSelectedCall(null);
     setShowSession(false);
+    setCallView("transcript");
     setSession({ status: "idle" });
     setMobilePane("chat");
   }
 
   return (
-    <div className="grid min-h-[32rem] grid-cols-1 gap-4 md:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)] lg:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(14rem,16rem)]">
+    <div className="relative grid min-h-[32rem] grid-cols-1 gap-4 md:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minmax(14rem,18rem)]">
       <div
         ref={listRef}
         tabIndex={-1}
@@ -190,13 +211,13 @@ export function InboxView({
       <section
         ref={chatRef}
         tabIndex={-1}
-        aria-label={showSession ? "Transcripción de la llamada" : "Conversación"}
+        aria-label="Conversación"
         className={`min-h-0 flex-col rounded-lg border border-border bg-card outline-none ${
           mobilePane === "details"
-            ? "hidden md:hidden lg:flex"
+            ? "hidden md:hidden xl:flex"
             : mobilePane === "chat"
-              ? "flex md:flex lg:flex"
-              : "hidden md:flex lg:flex"
+              ? "flex md:flex xl:flex"
+              : "hidden md:flex xl:flex"
         }`}
       >
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-3">
@@ -209,28 +230,20 @@ export function InboxView({
               Volver a chats
             </button>
             <h2 className="truncate text-sm font-semibold text-foreground">
-              {showSession ? "Transcripción" : (selectedName ?? "Selecciona una conversación")}
+              {selectedName ?? "Selecciona una conversación"}
             </h2>
+            {contact ? <StatusBadge status={contact.status} /> : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {showSession ? (
-              <button
-                type="button"
-                onClick={() => setShowSession(false)}
-                className="rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                Volver a la conversación
-              </button>
-            ) : null}
-            {selectedId && !showSession ? (
+            {selectedId ? (
               <TimelineFilterTabs active={activeFilter} onChange={handleFilterChange} />
             ) : null}
-            {selectedId && !showSession ? (
+            {selectedId ? (
               <button
                 type="button"
                 onClick={() => setMobilePane("details")}
-                className="rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+                className="rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:hidden"
               >
                 Detalles
               </button>
@@ -238,17 +251,7 @@ export function InboxView({
           </div>
         </header>
 
-        {showSession ? (
-          <CallSession
-            state={
-              session.status === "ready"
-                ? session
-                : session.status === "error"
-                  ? { status: "error" }
-                  : { status: "loading" }
-            }
-          />
-        ) : !selectedId ? (
+        {!selectedId ? (
           <EmptyState message="Selecciona una conversación para ver sus mensajes y llamadas." />
         ) : (
           <ConversationPane
@@ -264,12 +267,33 @@ export function InboxView({
             loadOlderMessages={loadOlderMessages}
           />
         )}
+
+        <footer className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-2 text-xs text-muted-foreground">
+          <svg
+            aria-hidden
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4 shrink-0"
+          >
+            <path d="M12 3a4 4 0 0 0-4 4v2a4 4 0 0 0 8 0V7a4 4 0 0 0-4-4Z" />
+            <path d="M5 11v1a7 7 0 0 0 14 0v-1M12 19v3" />
+          </svg>
+          <span>{INBOX_AI_FOOTER}</span>
+        </footer>
       </section>
 
       <div
         ref={detailsRef}
         tabIndex={-1}
-        className={`min-h-0 outline-none ${mobilePane === "details" ? "block" : "hidden"} lg:block`}
+        className={`min-h-0 outline-none ${
+          mobilePane === "details"
+            ? "block md:absolute md:inset-0 md:z-20 md:rounded-lg md:bg-card xl:static xl:z-auto"
+            : "hidden"
+        } xl:block`}
       >
         {selectedCall ? (
           <CallReportPanel
@@ -284,6 +308,15 @@ export function InboxView({
           <ContactPanel contact={contact} onClose={() => setMobilePane("chat")} />
         )}
       </div>
+
+      <CallWindow
+        open={showSession}
+        call={selectedCall ?? FALLBACK_CALL}
+        state={callWindowState}
+        view={callView}
+        onViewChange={setCallView}
+        onClose={closeCallWindow}
+      />
     </div>
   );
 }
@@ -403,7 +436,13 @@ function ConversationPane({
   }
 
   return (
-    <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto p-4">
+    <div
+      ref={scrollRef}
+      onScroll={handleScroll}
+      role="region"
+      aria-label="Historial de la conversación"
+      className="min-h-0 flex-1 overflow-y-auto p-4"
+    >
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
