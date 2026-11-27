@@ -155,6 +155,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"contact_memory": {
+                  Row: {
+                    "contact_id": string,"facts": NonNullable<Json>,"summary": string,"tenant_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "contact_id": string,"facts"?: NonNullable<Json>,"summary"?: string,"tenant_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "contact_id"?: string,"facts"?: NonNullable<Json>,"summary"?: string,"tenant_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "contact_memory_tenant_id_contact_id_fkey"
+      columns: ["tenant_id","contact_id"]
+isOneToOne: true
+      referencedRelation: "contacts"
+      referencedColumns: ["tenant_id","id"]
+    },{
+      foreignKeyName: "contact_memory_tenant_id_fkey"
+      columns: ["tenant_id"]
+isOneToOne: false
+      referencedRelation: "tenants"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"contacts": {
                   Row: {
                     "attributes": NonNullable<Json>,"created_at": string,"id": string,"name": string | null,"phone_e164": string | null,"redacted_at": string | null,"tenant_id": string,"wa_id": string

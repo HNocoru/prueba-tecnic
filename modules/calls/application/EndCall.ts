@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import type { CallMutationResult, CallRepository, WhatsAppCallGateway } from "./ports";
+import type {
+  CallMutationResult,
+  CallRepository,
+  ScheduleCallSummary,
+  WhatsAppCallGateway,
+} from "./ports";
 
 const isoDate = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
   message: "fecha inválida",
@@ -23,6 +28,7 @@ export class EndCall {
   constructor(
     private readonly calls: CallRepository,
     private readonly gateway: WhatsAppCallGateway,
+    private readonly scheduleSummary?: ScheduleCallSummary,
   ) {}
 
   async execute(callId: string, input: unknown): Promise<CallMutationResult> {
@@ -40,11 +46,23 @@ export class EndCall {
       error: parsed.data.error,
     });
 
-    // Un end repetido (la fila ya estaba cerrada) no vuelve a colgar.
-    if (parsed.data.ended_reason === "time_limit" && call.waCallId && !call.endedAt) {
-      await this.disconnectBestEffort(call.waCallId);
+    // Un end repetido (la fila ya estaba cerrada) no vuelve a colgar ni a resumir.
+    if (!call.endedAt) {
+      if (parsed.data.ended_reason === "time_limit" && call.waCallId) {
+        await this.disconnectBestEffort(call.waCallId);
+      }
+      this.scheduleSummarySafely(call.tenantId, call.id);
     }
     return { ok: true };
+  }
+
+  /** El end ya cerró la fila: un fallo al programar no debe cambiar la respuesta. */
+  private scheduleSummarySafely(tenantId: string, callId: string): void {
+    try {
+      this.scheduleSummary?.schedule(tenantId, callId);
+    } catch {
+      // after() solo existe dentro de una petición; aquí nunca se loguea texto del cliente.
+    }
   }
 
   /** Si Meta ya terminó la llamada el Connector falla: se ignora y el end responde 200. */

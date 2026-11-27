@@ -431,3 +431,33 @@ Rama `feat/ui-p3-login-home` desde `feat/ui-p2-fundacion`. Sin commit ni push.
   verificación propia. Solo existe `auth.rate_limit.sign_in_sign_ups = 30` en la configuración
   local de Supabase. Reason: el handoff pide anotarlo, no implementarlo; cualquier control
   nuevo necesita una decisión de producto sobre fricción y coste.
+
+## 2026-11-27 · S19: resumen y memoria al terminar una llamada
+
+- **Memoria por contacto en `public.contact_memory`:** PK `(tenant_id, contact_id)`, FK compuesta
+  a `contacts`, `facts jsonb` validado con `jsonb_has_secrets` y RLS con lectura por
+  `current_tenant()`; la escritura corresponde solo al servidor con `tenant_id` explícito.
+  Reason: el contexto del worker debe traer memoria real sin secretos ni escritura del cliente.
+- **Resumen fuera de la respuesta del `end`:** `EndCall` programa a través del puerto
+  `ScheduleCallSummary` y el adaptador `AfterCallSummary` usa `after()` de `next/server`. Un fallo
+  al programar se ignora; un fallo del LLM solo registra un código redactado.
+  Reason: el worker espera respuesta en menos de 5 segundos y el texto del cliente nunca se loguea.
+- **Idempotencia en dos niveles:** un segundo `end` no reprograma el resumen y `saveCallSummary`
+  solo actualiza si `summary` está vacío o nulo. El guard se adquiere antes de fusionar memoria,
+  así solo el ganador escribe `contact_memory`. Reason: dos `end` en carrera no duplican llamadas
+  al LLM ni concatenan dos veces el resumen del contacto.
+- **Transcripción como contenido de usuario:** system prompt fijo, tope de 40 turnos y
+  12 000 caracteres, salida validada con zod y limpieza defensiva de bloques `<think>…</think>`.
+  Reason: el cliente no puede inyectar instrucciones en el resumen ni ensuciar la memoria.
+- **Siguiente paso (fuera de este handoff):** las conversaciones de texto todavía no alimentan
+  memoria; las atiende otro agente en `modules/assistant`. Reason: el handoff excluye ese módulo.
+
+### Verificación
+
+- `pnpm test`: 38 archivos, 230 pruebas (base: 36 archivos, 211 pruebas). `pnpm lint`,
+  `pnpm typecheck` y `pnpm arch`: exit 0. `pnpm test:integration`: 6 archivos, 31 pruebas.
+- `pnpm db:test`: la prueba nueva `contact_memory.test.sql` pasa. El conjunto quedó en
+  `Result: FAIL` porque la base local compartida tiene aplicada la migración `20260108000000`
+  (ausente en este worktree), que dejó `requests` en la publicación `supabase_realtime` y rompió
+  `realtime_publication.test.sql`. Reason: no se modificó esa migración ni la publicación ajena;
+  se reporta como fallo ambiental, no propio.

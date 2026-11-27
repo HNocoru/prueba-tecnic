@@ -107,4 +107,26 @@ describe("GetCallContext", () => {
 
     expect(result).toEqual({ ok: false, error: "ended" });
   });
+
+  it("trae la memoria del contacto desde el módulo memory", async () => {
+    const reader = {
+      readForCall: async (tenantId: string, callId: string) => {
+        expect(tenantId).toBe("tenant-1");
+        expect(callId).toBe("call-1");
+        return { summary: "Le gusta el café", facts: { ciudad: "CDMX" } };
+      },
+    };
+
+    const result = await new GetCallContext(
+      repository(),
+      fakeBusinessContext as never,
+      reader,
+    ).execute("call-1");
+
+    if (!result.ok) throw new Error("se esperaba contexto");
+    expect(result.context.memory).toEqual({
+      summary: "Le gusta el café",
+      facts: { ciudad: "CDMX" },
+    });
+  });
 });
