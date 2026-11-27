@@ -300,16 +300,16 @@ isOneToOne: false
                   }
                   Relationships: [
                     {
-      foreignKeyName: "requests_tenant_id_contact_id_fkey"
-      columns: ["tenant_id","contact_id"]
-isOneToOne: false
-      referencedRelation: "contacts"
-      referencedColumns: ["tenant_id","id"]
-    },{
       foreignKeyName: "requests_tenant_conversation_fkey"
       columns: ["tenant_id","conversation_id"]
 isOneToOne: false
       referencedRelation: "conversations"
+      referencedColumns: ["tenant_id","id"]
+    },{
+      foreignKeyName: "requests_tenant_id_contact_id_fkey"
+      columns: ["tenant_id","contact_id"]
+isOneToOne: false
+      referencedRelation: "contacts"
       referencedColumns: ["tenant_id","id"]
     },{
       foreignKeyName: "requests_tenant_id_fkey"
