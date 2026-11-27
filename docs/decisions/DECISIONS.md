@@ -666,3 +666,13 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   un mecanismo propio de foco. No es una medición de campo ni incluye caché o compresión.
 
 > > > > > > > theirs
+
+## 2026-11-27 · S28 · Snapshot del negocio dentro de la llamada
+
+- **Causa:** el worker pedía `GET /context` una sola vez con timeout de 3 s; si tardaba o fallaba, el
+  agente arrancaba genérico y decía no tener productos ni horarios.
+- **Decisión:** al contestar, la app arma el contexto con `GetCallContext` (tope de 2 s, errores
+  tragados) y lo envía en `agents[].metadata` como `{"call_id", "context"}`. Sobre 48 000 bytes UTF-8
+  se manda solo `call_id` con un aviso sin contenido. `GET /context` queda como respaldo y contrato.
+  El participante sigue llevando solo `call_id`.
+- **Idempotencia:** un reintento de Meta no vuelve a pedir snapshot ni a contestar.

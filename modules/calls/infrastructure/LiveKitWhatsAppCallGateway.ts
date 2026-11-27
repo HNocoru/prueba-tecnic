@@ -27,6 +27,9 @@ export interface LiveKitGatewayConfig {
   readonly agentName: string;
 }
 
+/** LiveKit limita la metadata a 64 KB; se deja margen y se manda solo call_id si no cabe. */
+export const MAX_DISPATCH_METADATA_BYTES = 48_000;
+
 export const DEFAULT_CLOUD_API_VERSION = "26.0";
 export const DEFAULT_AGENT_NAME = "whatsapp-agent";
 
@@ -52,7 +55,8 @@ export class LiveKitWhatsAppCallGateway implements WhatsAppCallGateway {
   async accept(input: AcceptCallInput): Promise<void> {
     // El worker (call_id.py) lee call_id de la metadata del job (JSON) o del atributo del
     // participante; se envían ambas vías con el UUID interno.
-    const metadata = JSON.stringify({ call_id: input.callId });
+    const participantMetadata = JSON.stringify({ call_id: input.callId });
+    const metadata = this.dispatchMetadata(input, participantMetadata);
     try {
       await this.connector.acceptWhatsAppCall({
         whatsappPhoneNumberId: input.phoneNumberId,
@@ -62,12 +66,24 @@ export class LiveKitWhatsAppCallGateway implements WhatsAppCallGateway {
         sdp: new SessionDescription({ type: "offer", sdp: input.sdpOffer }),
         roomName: input.roomName,
         agents: [new RoomAgentDispatch({ agentName: this.config.agentName, metadata })],
-        participantMetadata: metadata,
+        participantMetadata,
         participantAttributes: { call_id: input.callId },
       });
     } catch (error) {
       throw this.sanitized("AcceptWhatsAppCall", error);
     }
+  }
+
+  /** Metadata del despacho: call_id y, si cabe, el snapshot del contexto (solo ahí). */
+  private dispatchMetadata(input: AcceptCallInput, callIdOnly: string): string {
+    if (input.contextSnapshot == null) return callIdOnly;
+    const full = JSON.stringify({ call_id: input.callId, context: input.contextSnapshot });
+    if (Buffer.byteLength(full, "utf8") <= MAX_DISPATCH_METADATA_BYTES) return full;
+    // Sin contenido del negocio ni del cliente en el aviso.
+    console.warn(
+      `Snapshot del contexto omitido: supera ${MAX_DISPATCH_METADATA_BYTES} bytes (call_id ${input.callId}); el worker usará GET /context`,
+    );
+    return callIdOnly;
   }
 
   async disconnect(waCallId: string, reason: DisconnectReason): Promise<void> {

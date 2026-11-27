@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { CallWebhookEvent } from "../domain/Call";
 import { FakeWhatsAppCallGateway } from "../testing/FakeWhatsAppCallGateway";
@@ -128,5 +128,68 @@ describe("HandleCallWebhookEvent", () => {
     await expect(handler.execute(TENANT, connect({ waId: null }))).rejects.toThrow(/wa_id/);
     expect(repo.starts).toHaveLength(0);
     expect(gateway.accepts).toHaveLength(0);
+  });
+
+  describe("snapshot del contexto", () => {
+    const snap = { call_id: "x", business: { name: "Tienda" } };
+
+    it("pasa el snapshot al gateway al contestar", async () => {
+      const repo = new InMemoryCallRepository();
+      const gateway = new FakeWhatsAppCallGateway();
+      const snapshot = vi.fn().mockResolvedValue(snap);
+      await new HandleCallWebhookEvent(repo, gateway, snapshot).execute(TENANT, connect());
+
+      expect(snapshot).toHaveBeenCalledWith(gateway.accepts[0]!.callId);
+      expect(gateway.accepts[0]!.contextSnapshot).toEqual(snap);
+    });
+
+    it("si el snapshot lanza error, contesta igual sin snapshot", async () => {
+      const repo = new InMemoryCallRepository();
+      const gateway = new FakeWhatsAppCallGateway();
+      const snapshot = vi.fn().mockRejectedValue(new Error("db caída"));
+      await new HandleCallWebhookEvent(repo, gateway, snapshot).execute(TENANT, connect());
+
+      expect(gateway.accepts).toHaveLength(1);
+      expect(gateway.accepts[0]!.contextSnapshot).toBeUndefined();
+    });
+
+    it("si el snapshot tarda más de 2 s, contesta igual sin snapshot", async () => {
+      vi.useFakeTimers();
+      try {
+        const repo = new InMemoryCallRepository();
+        const gateway = new FakeWhatsAppCallGateway();
+        const snapshot = vi.fn().mockReturnValue(new Promise(() => {}));
+        const running = new HandleCallWebhookEvent(repo, gateway, snapshot).execute(
+          TENANT,
+          connect(),
+        );
+        await vi.advanceTimersByTimeAsync(2000);
+        await running;
+
+        expect(gateway.accepts).toHaveLength(1);
+        expect(gateway.accepts[0]!.contextSnapshot).toBeUndefined();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("un reintento de Meta no vuelve a pedir snapshot ni a contestar", async () => {
+      const repo = new InMemoryCallRepository();
+      const gateway = new FakeWhatsAppCallGateway();
+      const snapshot = vi.fn().mockResolvedValue(snap);
+      const handler = new HandleCallWebhookEvent(repo, gateway, snapshot);
+
+      await handler.execute(TENANT, connect());
+      await handler.execute(TENANT, connect());
+
+      expect(snapshot).toHaveBeenCalledTimes(1);
+      expect(gateway.accepts).toHaveLength(1);
+    });
+
+    it("sin dependencia de snapshot contesta sin contextSnapshot", async () => {
+      const { gateway, handler } = setup();
+      await handler.execute(TENANT, connect());
+      expect(gateway.accepts[0]!.contextSnapshot).toBeUndefined();
+    });
   });
 });

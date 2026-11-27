@@ -130,4 +130,53 @@ describe("LiveKitWhatsAppCallGateway", () => {
     await expect(failure).rejects.not.toThrow(SECRET);
     await expect(failure).rejects.not.toThrow(longToken);
   });
+
+  describe("snapshot en la metadata del despacho", () => {
+    const base = {
+      callId: CALL_ID,
+      waCallId: "w",
+      phoneNumberId: "p",
+      sdpOffer: "s",
+      roomName: "r",
+    };
+
+    it("incluye context junto a call_id y deja participante solo con call_id", async () => {
+      const { connector, gateway } = setup();
+      const context = { call_id: CALL_ID, business: { name: "Café ñandú" } };
+
+      await gateway.accept({ ...base, contextSnapshot: context });
+
+      const options = connector.acceptWhatsAppCall.mock.calls[0]![0];
+      expect(options.agents[0].metadata).toBe(JSON.stringify({ call_id: CALL_ID, context }));
+      expect(options.participantMetadata).toBe(JSON.stringify({ call_id: CALL_ID }));
+      expect(options.participantAttributes).toEqual({ call_id: CALL_ID });
+    });
+
+    it("con snapshot mayor a 48 000 bytes UTF-8 cae a solo call_id y avisa sin contenido", async () => {
+      const { connector, gateway } = setup();
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      // "ñ" pesa 2 bytes: 25 000 caracteres = 50 000 bytes, menos de 48 000 caracteres.
+      const context = { business: { faq: "ñ".repeat(25_000) } };
+
+      await gateway.accept({ ...base, contextSnapshot: context });
+
+      const options = connector.acceptWhatsAppCall.mock.calls[0]![0];
+      expect(options.agents[0].metadata).toBe(JSON.stringify({ call_id: CALL_ID }));
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(warn.mock.calls[0])).not.toContain("ñññ");
+      warn.mockRestore();
+    });
+
+    it("acepta un snapshot de exactamente 48 000 bytes", async () => {
+      const { connector, gateway } = setup();
+      const wrapperBytes = Buffer.byteLength(JSON.stringify({ call_id: CALL_ID, context: "" }));
+      const context = "a".repeat(48_000 - wrapperBytes);
+
+      await gateway.accept({ ...base, contextSnapshot: context });
+
+      const metadata = connector.acceptWhatsAppCall.mock.calls[0]![0].agents[0].metadata;
+      expect(Buffer.byteLength(metadata)).toBe(48_000);
+      expect(JSON.parse(metadata).context).toBe(context);
+    });
+  });
 });
