@@ -378,3 +378,26 @@ ruta entra en el grafo de chunks, sin añadir dependencias. Medición adicional 
 el árbol final: `/login` 17 126 B de HTML y 571 562 B de JS (9 peticiones), `/signup` 17 941 B y
 571 562 B (9 peticiones). No se compara esa medición con la base porque la base no se pudo
 compilar con Turbopack fuera del worktree.
+
+### Medición S16 (HTML y JS de cliente)
+
+Mismo procedimiento que S14: build de producción con Turbopack, Supabase local y navegación real
+con Playwright a `/inbox` a 1440 px, sumando el cuerpo de la respuesta HTML y de las respuestas de
+script. La medición "antes" es la toma fresca sobre el árbol inicial de este worktree; la "después"
+se tomó sobre el árbol final con el mismo comando y las mismas variables de entorno.
+
+| Ruta     | HTML antes | HTML después | Δ HTML            | JS antes  | JS después | Δ JS              | Peticiones JS |
+| -------- | ---------- | ------------ | ----------------- | --------- | ---------- | ----------------- | ------------- |
+| `/inbox` | 80 838 B   | 83 822 B     | +2 984 B (+3,7 %) | 955 940 B | 961 967 B  | +6 027 B (+0,6 %) | 11 → 11       |
+
+El HTML crece con el pie "La IA responde automáticamente", el chip de estado en la cabecera y el
+diálogo de llamada, que permanece montado para poder devolver el foco al cerrar. El JS sube por el
+estado local del diálogo y la ventana flotante, sin añadir dependencias ni peticiones.
+
+### Reproducción de desbordamiento S16
+
+Se midió con datos sembrados reales en `/inbox`, en lista, conversación y transcripción de llamada,
+a 390, 1024 y 1440 px. Antes y después: `documentElement.scrollWidth === clientWidth` y
+`body.scrollWidth === clientWidth`; sin elementos con `scrollWidth > clientWidth` ni rectángulos
+fuera del viewport. No hubo desbordamiento que corregir en la ruta; la prueba E2E lo fija para las
+nueve combinaciones de ancho y vista.
