@@ -1,6 +1,7 @@
 import { serverEnv } from "@/shared/env.server";
 import { createAdminClient } from "@/shared/supabase/admin";
 import { GetBusinessContext, SupabaseBusinessRepository } from "@/modules/business";
+import { createMemoryApi } from "@/modules/memory";
 
 import { EndCall } from "./application/EndCall";
 import { GetCallContext } from "./application/GetCallContext";
@@ -8,6 +9,7 @@ import { HandleCallWebhookEvent } from "./application/HandleCallWebhookEvent";
 import { RecordCallTurns } from "./application/RecordCallTurns";
 import { RecordWorkerHeartbeat } from "./application/RecordWorkerHeartbeat";
 import type { WhatsAppCallGateway } from "./application/ports";
+import { AfterCallSummary } from "./infrastructure/AfterCallSummary";
 import {
   DEFAULT_AGENT_NAME,
   DEFAULT_CLOUD_API_VERSION,
@@ -26,10 +28,15 @@ export function composeCallApi(): {
   const repository = new SupabaseCallRepository(adminDb);
   const businessRepository = new SupabaseBusinessRepository(adminDb);
   const getBusinessContext = new GetBusinessContext(businessRepository);
+  const memory = createMemoryApi(adminDb);
   return {
-    getContext: new GetCallContext(repository, getBusinessContext),
+    getContext: new GetCallContext(repository, getBusinessContext, memory.repository),
     recordTurns: new RecordCallTurns(repository),
-    endCall: new EndCall(repository, composeWhatsAppCallGateway()),
+    endCall: new EndCall(
+      repository,
+      composeWhatsAppCallGateway(),
+      new AfterCallSummary(memory.summarize),
+    ),
     heartbeat: new RecordWorkerHeartbeat(),
   };
 }

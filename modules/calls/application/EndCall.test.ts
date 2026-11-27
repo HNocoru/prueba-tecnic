@@ -178,4 +178,40 @@ describe("EndCall", () => {
     expect(result).toEqual({ ok: true });
     expect(gateway.disconnects).toEqual([]);
   });
+
+  it("programa el resumen tras cerrar y no propaga fallos del programador", async () => {
+    const repo = repository();
+    const scheduled: string[] = [];
+    const scheduler = {
+      schedule(tenantId: string, callId: string): void {
+        scheduled.push(`${tenantId}:${callId}`);
+        throw new Error("after no disponible");
+      },
+    };
+
+    const result = await new EndCall(repo, new FakeWhatsAppCallGateway(), scheduler).execute(
+      "call-1",
+      valid,
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(scheduled).toEqual(["tenant-1:call-1"]);
+    expect(repo.lastEnd).not.toBeNull();
+  });
+
+  it("un end repetido no reprograma el resumen", async () => {
+    const repo = repository();
+    let scheduled = 0;
+    const scheduler = {
+      schedule(): void {
+        scheduled += 1;
+      },
+    };
+    const useCase = new EndCall(repo, new FakeWhatsAppCallGateway(), scheduler);
+
+    await useCase.execute("call-1", valid);
+    await useCase.execute("call-1", valid);
+
+    expect(scheduled).toBe(1);
+  });
 });

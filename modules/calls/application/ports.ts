@@ -78,4 +78,17 @@ export interface CallContextResponse {
 
 export type CallMutationResult = { ok: true } | { ok: false; error: "invalid" | "not_found" };
 
+/** El resumen se programa después de responder el end; el puerto no conoce a Next. */
+export interface ScheduleCallSummary {
+  schedule(tenantId: string, callId: string): void;
+}
+
+/** Memoria por contacto; la implementa el repositorio de modules/memory. */
+export interface CallMemoryReader {
+  readForCall(
+    tenantId: string,
+    callId: string,
+  ): Promise<{ summary: string; facts: Record<string, unknown> }>;
+}
+
 export type { CallOutcome };
