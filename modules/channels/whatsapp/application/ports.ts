@@ -37,6 +37,15 @@ export interface ContactStore {
   ): Promise<boolean>;
 }
 
+/** Mensaje recién insertado, listo para disparar la respuesta del asistente. */
+export interface NewInboundMessage {
+  readonly tenantId: string;
+  readonly conversationId: string;
+  /** wamid entrante; sirve como idempotency key del asistente. */
+  readonly messageId: string;
+  readonly kind: InboundMessage["kind"];
+}
+
 export interface StoredNumber {
   phoneNumberId: string;
   displayPhone: string | null;

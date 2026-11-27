@@ -3,7 +3,13 @@ import { createHash } from "node:crypto";
 import type { InboundCall } from "../domain/InboundCall";
 import type { InboundMessage } from "../domain/InboundMessage";
 import { parsePayload } from "./parsePayload";
-import type { CallEventSink, ContactStore, EventStore, TenantResolver } from "./ports";
+import type {
+  CallEventSink,
+  ContactStore,
+  EventStore,
+  NewInboundMessage,
+  TenantResolver,
+} from "./ports";
 
 const PROVIDER_ERROR_MAX = 500;
 
@@ -19,7 +25,8 @@ export class IngestWhatsAppWebhook {
     private readonly calls?: CallEventSink,
   ) {}
 
-  async execute(rawBody: string): Promise<void> {
+  async execute(rawBody: string): Promise<NewInboundMessage[]> {
+    const created: NewInboundMessage[] = [];
     const bodyHash = `body:${createHash("sha256").update(rawBody).digest("hex")}`;
 
     let json: unknown;
@@ -27,17 +34,18 @@ export class IngestWhatsAppWebhook {
       json = JSON.parse(rawBody);
     } catch {
       await this.recordFailure(bodyHash, { raw: rawBody.slice(0, 2000) }, "cuerpo no es JSON");
-      return;
+      return created;
     }
 
     const parsed = parsePayload(json);
     if (!parsed.ok) {
       await this.recordFailure(bodyHash, json, parsed.error);
-      return;
+      return created;
     }
 
     for (const message of parsed.messages) {
-      await this.ingestMessage(message);
+      const inserted = await this.ingestMessage(message);
+      if (inserted) created.push(inserted);
     }
 
     for (const call of parsed.calls) {
@@ -49,14 +57,16 @@ export class IngestWhatsAppWebhook {
       const { alreadyProcessed } = await this.events.saveEvent(bodyHash, json);
       if (!alreadyProcessed) await this.events.markProcessed(bodyHash, null);
     }
+
+    return created;
   }
 
-  private async ingestMessage(message: InboundMessage): Promise<void> {
+  private async ingestMessage(message: InboundMessage): Promise<NewInboundMessage | null> {
     const eventId = message.wamid;
     let tenantId: string | null = null;
     try {
       const { alreadyProcessed } = await this.events.saveEvent(eventId, message);
-      if (alreadyProcessed) return;
+      if (alreadyProcessed) return null;
 
       tenantId = await this.tenants.findTenantIdByPhoneNumberId(message.phoneNumberId);
       if (!tenantId) {
@@ -65,7 +75,7 @@ export class IngestWhatsAppWebhook {
           null,
           `phone_number_id desconocido: ${message.phoneNumberId}`,
         );
-        return;
+        return null;
       }
 
       const contactId = await this.contacts.upsertContact(tenantId, {
@@ -78,7 +88,7 @@ export class IngestWhatsAppWebhook {
         contactId,
         message.occurredAt,
       );
-      await this.contacts.insertMessageIfNew(tenantId, conversationId, {
+      const inserted = await this.contacts.insertMessageIfNew(tenantId, conversationId, {
         wamid: message.wamid,
         direction: "inbound",
         kind: message.kind,
@@ -86,8 +96,12 @@ export class IngestWhatsAppWebhook {
         occurredAt: message.occurredAt,
       });
       await this.events.markProcessed(eventId, tenantId);
+      return inserted
+        ? { tenantId, conversationId, messageId: message.wamid, kind: message.kind }
+        : null;
     } catch (error) {
       await this.safeMarkFailed(eventId, tenantId, error);
+      return null;
     }
   }
 
