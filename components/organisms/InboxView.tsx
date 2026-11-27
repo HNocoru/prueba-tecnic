@@ -176,7 +176,7 @@ export function InboxView({
         ref={chatRef}
         tabIndex={-1}
         aria-label="Conversación"
-        className={`min-h-0 flex-col rounded-lg border border-border bg-card outline-none ${
+        className={`min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card outline-none ${
           mobilePane === "details"
             ? "hidden md:hidden xl:flex"
             : mobilePane === "chat"
@@ -253,7 +253,7 @@ export function InboxView({
       <div
         ref={detailsRef}
         tabIndex={-1}
-        className={`min-h-0 outline-none ${
+        className={`min-h-0 min-w-0 outline-none ${
           mobilePane === "details"
             ? "block md:absolute md:inset-0 md:z-20 md:rounded-lg md:bg-card xl:static xl:z-auto"
             : "hidden"
