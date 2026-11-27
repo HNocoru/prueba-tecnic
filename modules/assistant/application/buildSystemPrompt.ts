@@ -1,4 +1,5 @@
 import type { BusinessContext } from "../domain/BusinessContext";
+import { formatTextMemory, type TextMemoryForPrompt } from "./formatTextMemory";
 
 const WEEKDAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
@@ -6,7 +7,10 @@ const WEEKDAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes
  * Construye el prompt de sistema únicamente con datos del tenant solicitado.
  * El texto del cliente se entrega por separado como mensaje de usuario.
  */
-export function buildSystemPrompt(context: BusinessContext): string {
+export function buildSystemPrompt(
+  context: BusinessContext,
+  memory?: TextMemoryForPrompt | null,
+): string {
   const tone = context.assistant.tone ?? "cercano y profesional";
   const lines: string[] = [
     `Eres ${context.assistant.name}, el asistente de ${context.name}.`,
@@ -59,6 +63,9 @@ export function buildSystemPrompt(context: BusinessContext): string {
       lines.push(`- Pregunta: ${faq.question} / Respuesta: ${faq.answer}`);
     }
   }
+
+  const block = memory ? formatTextMemory(memory) : null;
+  if (block) lines.push("", block);
 
   return lines.join("\n");
 }

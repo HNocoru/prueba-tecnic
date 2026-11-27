@@ -6,14 +6,23 @@ import type { ConversationTurn } from "../domain/ConversationTurn";
 import { TEXT_ONLY_REPLY } from "../domain/Reply";
 import type {
   BusinessContextReader,
+  ContactMemoryReader,
+  ContactMemorySnapshot,
   ConversationHistoryReader,
+  ConversationSummaryRequest,
+  ConversationSummaryScheduler,
   InboundMessageReader,
   LlmPort,
   MessageWriter,
+  NewMessageCounter,
+  RecentCallSummariesReader,
+  RecentCallSummary,
   ReplyEventStore,
   RequestWriter,
   WhatsAppSenderPort,
 } from "./ports";
+import { buildSystemPrompt } from "./buildSystemPrompt";
+import { DATA_BLOCK_START } from "./formatTextMemory";
 import { MAX_REPLIES_PER_HOUR, ReplyToInboundMessage } from "./ReplyToInboundMessage";
 
 const TENANT = "tenant-A";
@@ -419,4 +428,119 @@ it("acción prohibida completed no escribe solicitud", async () => {
   });
   await expect(useCase.execute(TENANT, CONV, MSG)).resolves.toMatchObject({ status: "sent" });
   expect(requests.applied).toEqual([]);
+});
+
+class FakeTextMemory implements ContactMemoryReader, RecentCallSummariesReader, NewMessageCounter {
+  snapshot: ContactMemorySnapshot = { summary: "", facts: {}, updatedAt: null };
+  recent: RecentCallSummary[] = [];
+  inboundCount = 0;
+  readError: Error | null = null;
+  readonly reads: string[] = [];
+  readonly counts: string[] = [];
+
+  async read(tenantId: string, contactId: string) {
+    this.reads.push(`${tenantId}:${contactId}`);
+    if (this.readError) throw this.readError;
+    return this.snapshot;
+  }
+  async readRecent() {
+    return this.recent;
+  }
+  async countInboundSince(_tenantId: string, _contactId: string, since: Date) {
+    this.counts.push(since.toISOString());
+    return this.inboundCount;
+  }
+}
+
+class FakeSummaryScheduler implements ConversationSummaryScheduler {
+  readonly scheduled: ConversationSummaryRequest[] = [];
+  error: Error | null = null;
+  schedule(request: ConversationSummaryRequest) {
+    this.scheduled.push(request);
+    if (this.error) throw this.error;
+  }
+}
+
+const setupWithMemory = () => {
+  const base = setup();
+  const memory = new FakeTextMemory();
+  const scheduler = new FakeSummaryScheduler();
+  const useCase = new ReplyToInboundMessage({
+    inbound: base.inbound,
+    business: base.business,
+    history: base.history,
+    llm: base.llm,
+    sender: base.sender,
+    messages: base.messages,
+    events: base.events,
+    memory,
+    recentCalls: memory,
+    newMessages: memory,
+    summaryScheduler: scheduler,
+  });
+  return { ...base, useCase, memory, scheduler };
+};
+
+describe("S22 · memoria en el texto", () => {
+  it("inyecta la memoria y las últimas llamadas en el prompt con tenant y contacto explícitos", async () => {
+    const { useCase, llm, memory } = setupWithMemory();
+    memory.snapshot = {
+      summary: "Le gusta el café de especialidad",
+      facts: { ciudad: "CDMX" },
+      updatedAt: null,
+    };
+    memory.recent = [{ at: "2026-11-26T10:00:00.000Z", summary: "Reservó una mesa" }];
+    await expect(useCase.execute(TENANT, CONV, MSG)).resolves.toMatchObject({ status: "sent" });
+    const system = llm.calls[0].system;
+    expect(system).toContain(DATA_BLOCK_START);
+    expect(system).toContain("Le gusta el café de especialidad");
+    expect(system).toContain("CDMX");
+    expect(system).toContain("Reservó una mesa");
+    expect(memory.reads).toEqual([`${TENANT}:contact-A`]);
+  });
+
+  it("deja el prompt base intacto cuando la memoria está vacía o falla", async () => {
+    const empty = setupWithMemory();
+    await empty.useCase.execute(TENANT, CONV, MSG);
+    expect(empty.llm.calls[0].system).toBe(buildSystemPrompt(context("Café Aurora")));
+
+    const broken = setupWithMemory();
+    broken.memory.readError = new Error("memoria no disponible");
+    await expect(broken.useCase.execute(TENANT, CONV, MSG)).resolves.toMatchObject({
+      status: "sent",
+    });
+    expect(broken.llm.calls[0].system).toBe(buildSystemPrompt(context("Café Aurora")));
+  });
+
+  it("no programa un resumen con 7 mensajes nuevos y sí con 8, desde updated_at", async () => {
+    const few = setupWithMemory();
+    few.memory.snapshot = {
+      summary: "",
+      facts: {},
+      updatedAt: "2026-11-27T09:00:00.000Z",
+    };
+    few.memory.inboundCount = 7;
+    await few.useCase.execute(TENANT, CONV, MSG);
+    expect(few.scheduler.scheduled).toHaveLength(0);
+    expect(few.memory.counts).toEqual(["2026-11-27T09:00:00.000Z"]);
+
+    const enough = setupWithMemory();
+    enough.memory.inboundCount = 8;
+    await enough.useCase.execute(TENANT, CONV, MSG);
+    expect(enough.scheduler.scheduled).toHaveLength(1);
+    expect(enough.scheduler.scheduled[0].tenantId).toBe(TENANT);
+    expect(enough.scheduler.scheduled[0].contactId).toBe("contact-A");
+    expect(enough.scheduler.scheduled[0].turns).toEqual(
+      expect.arrayContaining([
+        { role: "user", text: CUSTOMER_TEXT },
+        { role: "assistant", text: "Sí, abrimos a las 9." },
+      ]),
+    );
+  });
+
+  it("un fallo al programar el resumen no rompe la respuesta enviada", async () => {
+    const { useCase, scheduler } = setupWithMemory();
+    scheduler.error = new Error("after() fuera de petición");
+    await expect(useCase.execute(TENANT, CONV, MSG)).resolves.toMatchObject({ status: "sent" });
+  });
 });

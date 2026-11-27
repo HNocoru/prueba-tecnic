@@ -7,6 +7,7 @@ import type { ContactMemory } from "../domain/ContactMemory";
 import { EMPTY_MEMORY } from "../domain/ContactMemory";
 import type {
   CallMemoryRepository,
+  ConversationSummaryStore,
   SummarizableCall,
   CallTurnForSummary,
 } from "../application/ports";
@@ -20,7 +21,9 @@ const memorySchema = z.object({
  * service_role con tenant_id explícito en cada consulta: la RLS no decide qué tenant se lee,
  * lo decide el identificador ya resuelto por la capa superior.
  */
-export class SupabaseCallMemoryRepository implements CallMemoryRepository {
+export class SupabaseCallMemoryRepository
+  implements CallMemoryRepository, ConversationSummaryStore
+{
   constructor(private readonly db: SupabaseClient<Database>) {}
 
   async loadCallForSummary(tenantId: string, callId: string): Promise<SummarizableCall | null> {
@@ -137,5 +140,52 @@ export class SupabaseCallMemoryRepository implements CallMemoryRepository {
       { onConflict: "tenant_id,contact_id" },
     );
     if (error) throw new Error(`No se pudo guardar la memoria: ${error.message}`);
+  }
+
+  async readMemoryState(tenantId: string, contactId: string) {
+    const { data, error } = await this.db
+      .from("contact_memory")
+      .select("updated_at")
+      .eq("tenant_id", tenantId)
+      .eq("contact_id", contactId)
+      .maybeSingle();
+    if (error) throw new Error(`No se pudo leer la marca de memoria: ${error.message}`);
+    return { updatedAt: data?.updated_at ?? null };
+  }
+
+  /** Comparar la marca cruda en la UPDATE: dos resúmenes en carrera no se duplican. */
+  async saveContactMemoryIfUnchanged(
+    tenantId: string,
+    contactId: string,
+    expectedUpdatedAt: string | null,
+    memory: ContactMemory,
+  ): Promise<boolean> {
+    const row = {
+      summary: memory.summary,
+      facts: memory.facts,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (expectedUpdatedAt !== null) {
+      const { data, error } = await this.db
+        .from("contact_memory")
+        .update(row)
+        .eq("tenant_id", tenantId)
+        .eq("contact_id", contactId)
+        .eq("updated_at", expectedUpdatedAt)
+        .select("contact_id");
+      if (error) throw new Error(`No se pudo guardar la memoria del texto: ${error.message}`);
+      return (data?.length ?? 0) > 0;
+    }
+
+    const { data, error } = await this.db
+      .from("contact_memory")
+      .upsert(
+        { tenant_id: tenantId, contact_id: contactId, ...row },
+        { onConflict: "tenant_id,contact_id", ignoreDuplicates: true },
+      )
+      .select("contact_id");
+    if (error) throw new Error(`No se pudo guardar la memoria del texto: ${error.message}`);
+    return (data?.length ?? 0) > 0;
   }
 }
