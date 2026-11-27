@@ -15,11 +15,15 @@ async function AuthGate({ children }: { children: ReactNode }) {
   return children;
 }
 
+/**
+ * Shell de altura de ventana: la página nunca hace scroll propio; solo el
+ * contenido de `main` y los paneles internos pueden desplazarse.
+ */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    <div className="flex h-dvh flex-col overflow-hidden bg-canvas md:flex-row">
       <Sidebar />
-      <main className="flex min-h-screen flex-1 flex-col p-4 md:p-8">
+      <main className="order-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-4 md:order-2 md:p-6">
         <Suspense fallback={<LoadingState />}>
           <AuthGate>{children}</AuthGate>
         </Suspense>
