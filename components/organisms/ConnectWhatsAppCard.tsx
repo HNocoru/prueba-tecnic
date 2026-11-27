@@ -111,27 +111,22 @@ export function ConnectWhatsAppCard({ connection, view, action }: ConnectWhatsAp
       {view.showForm ? (
         <form action={formAction} className="flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-sm">
-            Número visible
+            Número visible de WhatsApp
             <input
               name="displayPhone"
               type="tel"
               required
+              inputMode="tel"
+              autoComplete="tel"
               placeholder="+5215512345678"
               defaultValue={connection.displayPhone ?? ""}
+              aria-describedby="whatsapp-displayPhone-hint"
               className={inputClass}
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
-            ID del número (phone_number_id)
-            <input
-              name="phoneNumberId"
-              inputMode="numeric"
-              required
-              placeholder="123456789012345"
-              defaultValue={connection.phoneNumberId ?? ""}
-              className={inputClass}
-            />
-          </label>
+          <p id="whatsapp-displayPhone-hint" className="text-xs text-text-2">
+            Escribe el número con código de país, tal como aparece en WhatsApp.
+          </p>
           {state.error && (
             <p role="alert" className="text-sm text-destructive">
               {state.error}

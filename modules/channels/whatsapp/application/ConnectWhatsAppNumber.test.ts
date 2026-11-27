@@ -1,54 +1,150 @@
 import { describe, expect, it } from "vitest";
 
 import { InMemoryNumberStore } from "../testing/InMemoryNumberStore";
+import type { WhatsAppNumberLookup } from "./ports";
+import type { ConnectResult } from "./ConnectWhatsAppNumber";
 import { ConnectWhatsAppNumber } from "./ConnectWhatsAppNumber";
 import { GetWhatsAppConnection } from "./GetWhatsAppConnection";
 
-const valid = { phoneNumberId: "123456789012345", displayPhone: "+5215512345678" };
+function errorOf(result: ConnectResult): string {
+  if (result.ok) throw new Error("Se esperaba un error");
+  return result.error;
+}
+
+const ACCOUNT_NUMBER = { phoneNumberId: "1370925136115469", displayPhone: "5215512345678" };
+
+class FakeLookup implements WhatsAppNumberLookup {
+  calls = 0;
+  seenWabaId: string | null = null;
+  constructor(
+    private readonly numbers: Array<{ phoneNumberId: string; displayPhone: string }> = [
+      ACCOUNT_NUMBER,
+    ],
+    private readonly failure: Error | null = null,
+  ) {}
+
+  async listPhoneNumbers(wabaId: string) {
+    this.calls += 1;
+    this.seenWabaId = wabaId;
+    if (this.failure) throw this.failure;
+    return this.numbers;
+  }
+}
+
+const config = { wabaId: "WABA" };
+const valid = { displayPhone: "+5215512345678" };
 
 describe("ConnectWhatsAppNumber", () => {
-  it("guarda el número como pendiente", async () => {
+  it("guarda el número como pendiente usando el id que devuelve Graph", async () => {
     const store = new InMemoryNumberStore();
-    const result = await new ConnectWhatsAppNumber(store).execute("t1", valid);
+    const lookup = new FakeLookup();
+    const result = await new ConnectWhatsAppNumber(store, lookup, config).execute("t1", valid);
+
     expect(result).toEqual({ ok: true });
-    expect(store.rows.get("t1")).toEqual({ ...valid, status: "pending" });
+    expect(lookup.seenWabaId).toBe("WABA");
+    expect(store.rows.get("t1")).toEqual({
+      phoneNumberId: ACCOUNT_NUMBER.phoneNumberId,
+      displayPhone: valid.displayPhone,
+      status: "pending",
+    });
   });
 
   it("reemplaza el número del mismo tenant (upsert)", async () => {
     const store = new InMemoryNumberStore();
-    const uc = new ConnectWhatsAppNumber(store);
+    const lookup = new FakeLookup([
+      ACCOUNT_NUMBER,
+      { phoneNumberId: "999999999999999", displayPhone: "5215512345679" },
+    ]);
+    const uc = new ConnectWhatsAppNumber(store, lookup, config);
     await uc.execute("t1", valid);
-    await uc.execute("t1", { ...valid, phoneNumberId: "999999999999999" });
+    await uc.execute("t1", { displayPhone: "+5215512345679" });
+
     expect(store.rows.size).toBe(1);
-    expect(store.rows.get("t1")?.phoneNumberId).toBe("999999999999999");
+    expect(store.rows.get("t1")?.displayPhone).toBe("+5215512345679");
   });
 
-  it.each([
-    ["abc123456789012", "+5215512345678"],
-    ["12345678901234", "+5215512345678"],
-    ["123456789012345678901", "+5215512345678"],
-    ["123456789012345", "5215512345678"],
-    ["123456789012345", "+0123"],
-    ["123456789012345", "55 1234 5678"],
-  ])("rechaza %s / %s sin guardar", async (phoneNumberId, displayPhone) => {
+  it("normaliza +52 1 55 1234 5678 frente a 5215512345678", async () => {
     const store = new InMemoryNumberStore();
-    const result = await new ConnectWhatsAppNumber(store).execute("t1", {
-      phoneNumberId,
-      displayPhone,
+    const result = await new ConnectWhatsAppNumber(store, new FakeLookup(), config).execute("t1", {
+      displayPhone: "+52 1 55-1234 5678",
     });
-    expect(result.ok).toBe(false);
+
+    expect(result).toEqual({ ok: true });
+    expect(store.rows.get("t1")?.displayPhone).toBe("+5215512345678");
+    expect(store.rows.get("t1")?.phoneNumberId).toBe(ACCOUNT_NUMBER.phoneNumberId);
+  });
+
+  it.each(["", "5215512345678", "+0123", "55 1234 5678", "+52 1 55-12"])(
+    "rechaza %s sin guardar ni consultar Graph",
+    async (displayPhone) => {
+      const store = new InMemoryNumberStore();
+      const lookup = new FakeLookup();
+      const result = await new ConnectWhatsAppNumber(store, lookup, config).execute("t1", {
+        displayPhone,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(store.rows.size).toBe(0);
+      expect(lookup.calls).toBe(0);
+    },
+  );
+
+  it("rechaza un número que no está en la cuenta", async () => {
+    const store = new InMemoryNumberStore();
+    const result = await new ConnectWhatsAppNumber(store, new FakeLookup([]), config).execute(
+      "t1",
+      valid,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error:
+        "Ese número no está registrado en WhatsApp Business. Verifícalo con tu proveedor e inténtalo de nuevo.",
+    });
     expect(store.rows.size).toBe(0);
   });
 
-  it("rechaza un phone_number_id ya usado por otro tenant", async () => {
+  it("Graph caído devuelve un mensaje genérico sin tokens ni cuerpos", async () => {
     const store = new InMemoryNumberStore();
-    const uc = new ConnectWhatsAppNumber(store);
-    await uc.execute("t1", valid);
-    const result = await uc.execute("t2", valid);
+    const lookup = new FakeLookup([], new Error('Bearer SECRETO-GRAPH rechazado: {"body":1}'));
+    const result = await new ConnectWhatsAppNumber(store, lookup, config).execute("t1", valid);
+
     expect(result).toEqual({
       ok: false,
-      error: "Ese ID de número ya está conectado a otro negocio.",
+      error: "No pudimos verificar tu número con WhatsApp. Inténtalo de nuevo.",
     });
+    expect(errorOf(result)).not.toContain("SECRETO-GRAPH");
+    expect(errorOf(result)).not.toContain("Bearer");
+    expect(store.rows.size).toBe(0);
+  });
+
+  it("WABA sin configurar falla sin consultar Graph", async () => {
+    const store = new InMemoryNumberStore();
+    const lookup = new FakeLookup();
+    const result = await new ConnectWhatsAppNumber(store, lookup, { wabaId: undefined }).execute(
+      "t1",
+      valid,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Falta configurar la cuenta de WhatsApp Business de la plataforma.",
+    });
+    expect(lookup.calls).toBe(0);
+    expect(store.rows.size).toBe(0);
+  });
+
+  it("rechaza un número ya usado por otro tenant sin revelar de quién es", async () => {
+    const store = new InMemoryNumberStore();
+    const uc = new ConnectWhatsAppNumber(store, new FakeLookup(), config);
+    await uc.execute("t1", valid);
+    const result = await uc.execute("t2", valid);
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Ese número ya está conectado a otro negocio.",
+    });
+    expect(errorOf(result)).not.toContain("t1");
     expect(store.rows.has("t2")).toBe(false);
   });
 });
@@ -60,7 +156,6 @@ describe("GetWhatsAppConnection", () => {
     const r = await new GetWhatsAppConnection(new InMemoryNumberStore(), config).execute("t1");
     expect(r).toEqual({
       status: "not_connected",
-      phoneNumberId: null,
       displayPhone: null,
       webhookUrl: "https://app.test/api/whatsapp/webhook",
       verifyTokenConfigured: true,
@@ -76,14 +171,19 @@ describe("GetWhatsAppConnection", () => {
     expect(r.verifyTokenConfigured).toBe(false);
   });
 
-  it("devuelve el número guardado y no expone secretos", async () => {
+  it("devuelve el número guardado y nunca expone el id técnico al cliente", async () => {
     const store = new InMemoryNumberStore();
-    await new ConnectWhatsAppNumber(store).execute("t1", valid);
-    const r = await new GetWhatsAppConnection(store, config).execute("t1");
-    expect(r.status).toBe("pending");
-    expect(r.phoneNumberId).toBe(valid.phoneNumberId);
-    expect(Object.keys(r).sort()).toEqual(
-      ["displayPhone", "phoneNumberId", "status", "verifyTokenConfigured", "webhookUrl"].sort(),
+    await new ConnectWhatsAppNumber(store, new FakeLookup(), { wabaId: "WABA" }).execute(
+      "t1",
+      valid,
     );
+    const r = await new GetWhatsAppConnection(store, config).execute("t1");
+
+    expect(r.status).toBe("pending");
+    expect(r.displayPhone).toBe(valid.displayPhone);
+    expect(Object.keys(r).sort()).toEqual(
+      ["displayPhone", "status", "verifyTokenConfigured", "webhookUrl"].sort(),
+    );
+    expect(JSON.stringify(r)).not.toContain(ACCOUNT_NUMBER.phoneNumberId);
   });
 });

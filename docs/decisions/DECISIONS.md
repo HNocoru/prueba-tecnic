@@ -431,3 +431,21 @@ Rama `feat/ui-p3-login-home` desde `feat/ui-p2-fundacion`. Sin commit ni push.
   verificación propia. Solo existe `auth.rate_limit.sign_in_sign_ups = 30` en la configuración
   local de Supabase. Reason: el handoff pide anotarlo, no implementarlo; cualquier control
   nuevo necesita una decisión de producto sobre fricción y coste.
+
+## 2026-11-27 · S15: ligar el número sin pedir el phone_number_id
+
+Handoff: `odd/handoffs/S15-link-number.md`. Sin commit ni push.
+
+### Decisiones
+
+- **Un solo campo visible:** la tarjeta pide únicamente el número en formato internacional; se eliminaron el input, el valor del `FormData`, el mensaje de unicidad con la palabra «ID» y el `phoneNumberId` de `WhatsAppConnection`. Reason: el cliente no debe ver ni conocer el identificador técnico; el adaptador de Supabase sigue usándolo internamente para resolver el tenant del webhook.
+- **Puerto `WhatsAppNumberLookup`:** el caso de uso pide los números de la cuenta y compara por dígitos con `normalizePhone` de `modules/assistant` (exportado por su `index.ts`). Así `+52 1 55 1234 5678` liga con `5215512345678` y la comparación queda cubierta con un fake. Reason: la normalización ya existía como helper público del dominio de assistant.
+- **Adaptador Graph:** `GET /{WABA_ID}/phone_numbers?fields=id,display_phone_number,verified_name` con la versión `v25.0` y `WHATSAPP_ACCESS_TOKEN` solo en la cabecera. Timeout de 10 s por intento y un reintento. Los errores del caso de uso son genéricos: no incluyen token, cuerpo ni estado HTTP. Reason: evitar filtrar credenciales o detalles internos al cliente y no bloquear la UI ante fallos transitorios.
+- **WABA configurable:** `WHATSAPP_BUSINESS_ACCOUNT_ID` es opcional en `shared/env.server.ts`; sin valor se responde «Falta configurar la cuenta de WhatsApp Business de la plataforma.» Reason: no fijar el id de la cuenta en código.
+- **Estado y unicidad sin cambios:** se guarda `pending` y se mantiene `UNIQUE(phone_number_id)`; un número ajeno responde «Ese número ya está conectado a otro negocio.». El tenant sigue viniendo de `resolveTenantId()` en servidor. Reason: no alterar la llegada del primer webhook ni la frontera de autorización.
+
+### Deudas y riesgos
+
+- **Sin verificación contra Graph real:** las pruebas del adaptador usan `fetchImpl` falso; no se llamó a la cuenta de Meta. Queda pendiente una prueba con un token real.
+- **`GRAPH_API_VERSION` duplicado:** el adaptador define `v25.0` porque las superficies permitidas por el handoff no incluyen `modules/assistant`. Si Graph cambia de versión hay que actualizar dos lugares.
+- **Sin id técnico en el cliente:** `GetWhatsAppConnection` ya no lo devuelve, pero la tabla `whatsapp_numbers` sigue guardándolo; es necesario para el webhook. No hay migración nueva.

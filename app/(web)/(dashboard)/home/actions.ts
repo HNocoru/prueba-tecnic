@@ -18,7 +18,6 @@ export async function connectWhatsAppNumber(
 
   try {
     const result = await composeWhatsAppConnection().connect.execute(tenantId, {
-      phoneNumberId: String(formData.get("phoneNumberId") ?? "").trim(),
       displayPhone: String(formData.get("displayPhone") ?? "").trim(),
     });
     if (!result.ok) return { ok: false, error: result.error };

@@ -3,7 +3,6 @@ import type { WhatsAppNumberStore } from "./ports";
 
 export interface WhatsAppConnection {
   status: ConnectionStatus;
-  phoneNumberId: string | null;
   displayPhone: string | null;
   webhookUrl: string;
   verifyTokenConfigured: boolean;
@@ -28,7 +27,6 @@ export class GetWhatsAppConnection {
     const status = KNOWN.find((s) => s === row?.status) ?? "not_connected";
     return {
       status: row ? status : "not_connected",
-      phoneNumberId: row?.phoneNumberId ?? null,
       displayPhone: row?.displayPhone ?? null,
       webhookUrl: `${this.config.appUrl ?? ""}/api/whatsapp/webhook`,
       verifyTokenConfigured: this.config.verifyTokenConfigured,

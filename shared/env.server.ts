@@ -16,6 +16,8 @@ const serverSchema = z.object({
   /** Secreto compartido con el worker de voz para /api/internal/*. */
   WORKER_API_TOKEN: z.string().min(1),
   WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
+  /** Cuenta de WhatsApp Business de la plataforma; sin ella no se puede ligar un número. */
+  WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().min(1).optional(),
   /** Opcionales: sin ellos el asistente registra el fallo y no rompe el webhook. */
   GROQ_API_KEY: z.string().min(1).optional(),
   LLM_MODEL: z.string().min(1).optional(),
@@ -42,6 +44,7 @@ function parseServerEnv(): z.infer<typeof serverSchema> {
     WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN,
     WORKER_API_TOKEN: process.env.WORKER_API_TOKEN,
     WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN,
+    WHATSAPP_BUSINESS_ACCOUNT_ID: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID,
     GROQ_API_KEY: process.env.GROQ_API_KEY,
     LLM_MODEL: process.env.LLM_MODEL,
     LIVEKIT_URL: process.env.LIVEKIT_URL || undefined,

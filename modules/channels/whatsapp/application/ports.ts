@@ -46,6 +46,17 @@ export interface NewInboundMessage {
   readonly kind: InboundMessage["kind"];
 }
 
+/** Número visible de la cuenta de WhatsApp Business de la plataforma. */
+export interface AccountPhoneNumber {
+  phoneNumberId: string;
+  displayPhone: string;
+}
+
+/** Consulta de los números de la WABA. La comparación por dígitos la hace el caso de uso. */
+export interface WhatsAppNumberLookup {
+  listPhoneNumbers(wabaId: string): Promise<AccountPhoneNumber[]>;
+}
+
 export interface StoredNumber {
   phoneNumberId: string;
   displayPhone: string | null;

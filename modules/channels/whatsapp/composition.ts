@@ -6,6 +6,7 @@ import { IngestWhatsAppWebhook } from "./application/IngestWhatsAppWebhook";
 import { ConnectWhatsAppNumber } from "./application/ConnectWhatsAppNumber";
 import { GetWhatsAppConnection } from "./application/GetWhatsAppConnection";
 import { SupabaseChannelStore } from "./infrastructure/SupabaseChannelStore";
+import { GraphWhatsAppNumberLookup } from "./infrastructure/GraphWhatsAppNumberLookup";
 import { SupabaseWhatsAppNumberStore } from "./infrastructure/SupabaseWhatsAppNumberStore";
 
 /** Composition root: arma la ingesta con el adaptador de Supabase (service_role). */
@@ -26,8 +27,11 @@ export function composeWhatsAppConnection(): {
   get: GetWhatsAppConnection;
 } {
   const store = new SupabaseWhatsAppNumberStore(createAdminClient());
+  const lookup = new GraphWhatsAppNumberLookup({ accessToken: serverEnv.WHATSAPP_ACCESS_TOKEN });
   return {
-    connect: new ConnectWhatsAppNumber(store),
+    connect: new ConnectWhatsAppNumber(store, lookup, {
+      wabaId: serverEnv.WHATSAPP_BUSINESS_ACCOUNT_ID,
+    }),
     get: new GetWhatsAppConnection(store, {
       appUrl: process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, ""),
       verifyTokenConfigured: Boolean(serverEnv.WHATSAPP_VERIFY_TOKEN),

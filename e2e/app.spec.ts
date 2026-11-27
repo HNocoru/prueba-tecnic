@@ -67,22 +67,18 @@ test.describe("E2E - Flujos Existentes y Regresión Visual / Funcional", () => {
     const cardTitle = page.locator('h2:has-text("WhatsApp del negocio")');
     await expect(cardTitle).toBeVisible();
 
+    // El cliente solo ve el número visible: nunca el id técnico.
+    await expect(page.locator('input[name="phoneNumberId"]')).toHaveCount(0);
+    await expect(page.getByText("phone_number_id")).toHaveCount(0);
+
     const saveButton = page.locator('button:has-text("Guardar número")');
     if (await saveButton.isVisible()) {
-      // Probar validación cliente / servidor con input inválido
+      // Validación del servidor antes de cualquier consulta a Graph.
       await page.fill('input[name="displayPhone"]', "invalido");
-      await page.fill('input[name="phoneNumberId"]', "123");
       await saveButton.click();
 
-      // Debe mostrar mensaje de error en la tarjeta
       const alert = page.locator('p[role="alert"]');
       await expect(alert).toBeVisible();
-
-      // Probar con número válido
-      await page.fill('input[name="displayPhone"]', "+5215512345678");
-      await page.fill('input[name="phoneNumberId"]', "109998887776665");
-      await saveButton.click();
-      await expect(page.locator('text="Número guardado."')).toBeVisible();
     } else {
       // Estado conectado: sin pasos de configuración y con acción para copiar la URL.
       await expect(page.locator('text="Pega esto en Meta"')).toHaveCount(0);
