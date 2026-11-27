@@ -338,3 +338,23 @@ Rama `feat/ui-p3-login-home` desde `feat/ui-p2-fundacion`. Sin commit ni push.
 ## 2026-11-27 · Voz: se mantiene S2S con Phonic
 
 - Se descartó pasar a cascada (Deepgram + Groq + Cartesia). `reference/ai-call-center` es solo referencia de consumo de LLM y respuestas en audio. El worker sigue con S2S (Phonic) y arquitectura basada en servicios; el contrato no cambia.
+
+## 2026-11-27 · S14: registro de cuentas
+
+- **Alta atómica en el caso de uso:** `RegisterAccount` valida, crea usuario, negocio y membresía
+  y deshace tenant y usuario si falla cualquier paso. Reason: no hay transacción que abarque
+  Auth y PostgREST a la vez; el deshacer explícito es la única frontera consistente.
+- **Tenant siempre generado en servidor:** el slug se deriva del nombre del negocio con un
+  sufijo aleatorio y el `tenant_id` nunca entra en el `FormData`. La membresía usa el rol
+  por defecto (`operator`) porque el esquema no define `owner`. Reason: un cliente no puede
+  asignarse a un tenant ajeno.
+- **Correo duplicado sin distinción de proveedor:** se detecta por código o mensaje de GoTrue
+  y se devuelve siempre `Ya existe una cuenta con ese correo.`; cualquier otro error se
+  convierte en un mensaje genérico. Reason: no filtrar existencia de cuentas ni detalles internos.
+- **Login intacto:** el único cambio es el enlace "Crear cuenta"; el inicio de sesión sigue sin
+  aplicar la regla de contraseña fuerte, que solo rige el alta. Reason: no invalidar cuentas
+  existentes ni ampliar el alcance del handoff.
+- **Deuda P2 — sin límite de abuso en la app:** el registro no añade captcha, rate limit ni
+  verificación propia. Solo existe `auth.rate_limit.sign_in_sign_ups = 30` en la configuración
+  local de Supabase. Reason: el handoff pide anotarlo, no implementarlo; cualquier control
+  nuevo necesita una decisión de producto sobre fricción y coste.

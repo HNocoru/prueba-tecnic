@@ -340,3 +340,21 @@ con el mismo método sobre `683a5a7` y reprodujo exactamente los valores base ya
   `MalformedJWT` si el build usó `dummy`. Con el build de claves locales, los 3 tests de
   Realtime pasan.
 - No se hicieron commit ni push. No se leyeron ni editaron archivos de entorno.
+
+### S14: pantalla de registro
+
+- `/signup` replica la dirección A de `/login`: hero con `--color-hero`, titular con
+  `--font-display` (Bricolage Grotesque) y formulario como único bloque interactivo. La página
+  es Server Component; solo `signup-form.tsx` es cliente.
+- Tres campos con etiqueta visible, `aria-describedby` y `aria-invalid`: negocio, correo y
+  contraseña. El formulario usa `noValidate`; la validación ocurre en el servidor con los
+  esquemas ya existentes, y los mensajes llegan en español. El foco vuelve al primer campo
+  inválido tras la respuesta.
+- El control de mostrar/ocultar contraseña es un `<button>` nativo con nombre accesible,
+  `aria-pressed` y `aria-controls`; mide al menos 44 px de alto. La pista de complejidad es
+  texto visible asociado al campo.
+- El estado de carga se anuncia con `role="status"` y `aria-live="polite"`, y el botón se
+  deshabilita mientras envía. Los errores generales no muestran detalles internos.
+- Navegación: `/login` enlaza a "Crear cuenta" y `/signup` enlaza a "Ya tengo cuenta". El
+  middleware deja `/signup` público y devuelve a `/home` a quien ya tiene sesión.
+- **Sin dependencias nuevas.** El incremento de JS se limita al estado local del formulario.

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { LoginForm } from "./login-form";
 
 /** Familia de display: el titular debe renderizarse con Bricolage Grotesque. */
@@ -79,6 +81,11 @@ export default function LoginPage() {
             Entra para ver las conversaciones de tu negocio.
           </p>
           <LoginForm />
+          <p className="mt-6 text-sm text-text-2">
+            <Link href="/signup" className="font-semibold text-accent underline underline-offset-4">
+              Crear cuenta
+            </Link>
+          </p>
         </div>
       </section>
     </main>

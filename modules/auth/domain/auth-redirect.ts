@@ -1,4 +1,5 @@
 const LOGIN_PATH = "/login";
+const SIGNUP_PATH = "/signup";
 // La página principal del dashboard es /home.
 const HOME_PATH = "/home";
 
@@ -12,7 +13,12 @@ function normalizePathname(pathname: string): string {
 
 /** Rutas que se pueden visitar sin sesión. */
 function isPublicPath(pathname: string): boolean {
-  return pathname === LOGIN_PATH || pathname === "/api/auth" || pathname.startsWith("/api/auth/");
+  return (
+    pathname === LOGIN_PATH ||
+    pathname === SIGNUP_PATH ||
+    pathname === "/api/auth" ||
+    pathname.startsWith("/api/auth/")
+  );
 }
 
 /**
@@ -26,7 +32,7 @@ export function getAuthRedirect(pathname: string, hasSession: boolean): string |
     return LOGIN_PATH;
   }
 
-  if (hasSession && path === LOGIN_PATH) {
+  if (hasSession && (path === LOGIN_PATH || path === SIGNUP_PATH)) {
     return HOME_PATH;
   }
 
