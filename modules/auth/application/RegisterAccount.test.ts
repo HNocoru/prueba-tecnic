@@ -175,4 +175,32 @@ describe("RegisterAccount", () => {
     });
     expect(createUser).not.toHaveBeenCalled();
   });
+
+  it("exposes a rollback seam for a failed sign-in after provisioning", async () => {
+    const deleteTenant = vi.fn().mockResolvedValue(undefined);
+    const deleteUser = vi.fn().mockResolvedValue(undefined);
+    const provisioner: AccountProvisioner = {
+      createUser: vi.fn().mockResolvedValue("user-1"),
+      createTenant: vi.fn().mockResolvedValue("tenant-1"),
+      addMember: vi.fn().mockResolvedValue(undefined),
+      deleteTenant,
+      deleteUser,
+    };
+
+    const useCase = new RegisterAccount(provisioner);
+    const result = await useCase.execute({
+      businessName: "Café Aurora",
+      email: "dueno@cafe.mx",
+      password: "Segura123!abc",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    await useCase.rollback(result);
+
+    expect(deleteTenant).toHaveBeenCalledWith("tenant-1");
+    expect(deleteUser).toHaveBeenCalledWith("user-1");
+  });
 });
