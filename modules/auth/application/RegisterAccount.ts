@@ -20,8 +20,10 @@ export type RegisterAccountFieldErrors = Partial<
   Record<"businessName" | "email" | "password", string>
 >;
 
+export type ProvisionedAccount = { userId: string; tenantId: string };
+
 export type RegisterAccountResult =
-  | { ok: true; userId: string; tenantId: string }
+  | ({ ok: true } & ProvisionedAccount)
   | { ok: false; fieldErrors: RegisterAccountFieldErrors; error: string | null };
 
 const GENERIC_ERROR = "No se pudo crear la cuenta. Inténtalo de nuevo.";
@@ -78,25 +80,37 @@ export class RegisterAccount {
 
       return { ok: true, userId, tenantId };
     } catch (error) {
-      if (tenantId) {
-        try {
-          await this.provisioner.deleteTenant(tenantId);
-        } catch {
-          // El error original manda el mensaje; no se exponen detalles internos.
-        }
-      }
-      if (userId) {
-        try {
-          await this.provisioner.deleteUser(userId);
-        } catch {
-          // Un fallo al deshacer no debe ocultar el motivo del alta.
-        }
-      }
+      await this.undo(userId, tenantId);
 
       if (error instanceof DuplicateEmailError) {
         return { ok: false, fieldErrors: {}, error: DUPLICATE_EMAIL_ERROR };
       }
       return { ok: false, fieldErrors: {}, error: GENERIC_ERROR };
+    }
+  }
+
+  /**
+   * Deshace una cuenta ya aprovisionada. La acción lo usa si el inicio de sesión
+   * posterior al alta falla: ningún paso del registro puede dejar datos huérfanos.
+   */
+  async rollback(account: ProvisionedAccount): Promise<void> {
+    await this.undo(account.userId, account.tenantId);
+  }
+
+  private async undo(userId?: string, tenantId?: string): Promise<void> {
+    if (tenantId) {
+      try {
+        await this.provisioner.deleteTenant(tenantId);
+      } catch {
+        // El error original manda el mensaje; no se exponen detalles internos.
+      }
+    }
+    if (userId) {
+      try {
+        await this.provisioner.deleteUser(userId);
+      } catch {
+        // Un fallo al deshacer no debe ocultar el motivo del alta.
+      }
     }
   }
 }

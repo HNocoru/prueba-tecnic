@@ -21,11 +21,7 @@ function isDuplicateEmail(error: ProviderError): boolean {
   const code = typeof error.code === "string" ? error.code.toLowerCase() : "";
   const message = typeof error.message === "string" ? error.message.toLowerCase() : "";
 
-  return (
-    code === "email_exists" ||
-    code === "email_address_not_approved" ||
-    /already (registered|exists|in use)/.test(message)
-  );
+  return code === "email_exists" || /already (registered|exists|in use)/.test(message);
 }
 
 /** Aprovisiona cuenta, negocio y membresía con service_role, solo en servidor. */

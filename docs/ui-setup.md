@@ -358,3 +358,23 @@ con el mismo método sobre `683a5a7` y reprodujo exactamente los valores base ya
 - Navegación: `/login` enlaza a "Crear cuenta" y `/signup` enlaza a "Ya tengo cuenta". El
   middleware deja `/signup` público y devuelve a `/home` a quien ya tiene sesión.
 - **Sin dependencias nuevas.** El incremento de JS se limita al estado local del formulario.
+
+### Medición S14 (HTML y JS de cliente)
+
+Mismo procedimiento que las mediciones anteriores, con builds de webpack sobre `f0ca89d` (antes)
+y sobre el árbol con el registro (después), las mismas variables de entorno locales y navegación
+real con Playwright sumando el cuerpo de la respuesta HTML y de las respuestas de script.
+Se usa webpack en ambos lados para que la comparación sea homogénea; Turbopack no puede compilar
+una copia temporal con los enlaces de `node_modules` de pnpm.
+
+| Ruta      | HTML antes | HTML después | Δ HTML          | JS antes  | JS después | Δ JS              | Peticiones JS |
+| --------- | ---------- | ------------ | --------------- | --------- | ---------- | ----------------- | ------------- |
+| `/login`  | 15 782 B   | 16 334 B     | +552 B (+3,5 %) | 545 730 B | 553 409 B  | +7 679 B (+1,4 %) | 7 → 8         |
+| `/signup` | —          | 17 151 B     | ruta nueva      | —         | 554 191 B  | ruta nueva        | 8             |
+
+`/signup` no existía antes: la respuesta base es la página de fallback, no una pantalla comparable.
+El HTML de `/login` crece por el enlace "Crear cuenta"; el JS compartido crece porque la nueva
+ruta entra en el grafo de chunks, sin añadir dependencias. Medición adicional con Turbopack sobre
+el árbol final: `/login` 17 126 B de HTML y 571 562 B de JS (9 peticiones), `/signup` 17 941 B y
+571 562 B (9 peticiones). No se compara esa medición con la base porque la base no se pudo
+compilar con Turbopack fuera del worktree.

@@ -342,8 +342,12 @@ Rama `feat/ui-p3-login-home` desde `feat/ui-p2-fundacion`. Sin commit ni push.
 ## 2026-11-27 · S14: registro de cuentas
 
 - **Alta atómica en el caso de uso:** `RegisterAccount` valida, crea usuario, negocio y membresía
-  y deshace tenant y usuario si falla cualquier paso. Reason: no hay transacción que abarque
-  Auth y PostgREST a la vez; el deshacer explícito es la única frontera consistente.
+  y deshace tenant y usuario si falla cualquier paso, incluido el inicio de sesión posterior:
+  la acción llama a `rollback` con los identificadores devueltos. Reason: no hay transacción
+  que abarque Auth y PostgREST a la vez; el deshacer explícito es la única frontera consistente.
+- **Deshacer sin reintento:** si Supabase rechaza el borrado de compensación, `RegisterAccount`
+  conserva el error original y no expone el detalle interno. Reason: un error de deshacer no debe
+  ocultar ni filtrar el motivo del alta; queda como deuda operativa si el proveedor falla.
 - **Tenant siempre generado en servidor:** el slug se deriva del nombre del negocio con un
   sufijo aleatorio y el `tenant_id` nunca entra en el `FormData`. La membresía usa el rol
   por defecto (`operator`) porque el esquema no define `owner`. Reason: un cliente no puede

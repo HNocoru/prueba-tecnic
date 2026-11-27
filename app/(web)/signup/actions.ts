@@ -23,15 +23,17 @@ export async function signupAction(
   const email = typeof emailValue === "string" ? emailValue.trim() : "";
   const password = typeof passwordValue === "string" ? passwordValue : "";
 
-  const result = await createRegisterAccount().execute({ businessName, email, password });
+  const registerAccount = createRegisterAccount();
+  const result = await registerAccount.execute({ businessName, email, password });
   if (!result.ok) {
     return { error: result.error, fieldErrors: result.fieldErrors };
   }
 
   const session = await signInWithPassword({ email, password });
   if (session.error) {
+    await registerAccount.rollback(result);
     return {
-      error: "La cuenta se creó, pero no se pudo iniciar sesión. Entra desde Iniciar sesión.",
+      error: "No se pudo completar el registro. Inténtalo de nuevo.",
       fieldErrors: {},
     };
   }
