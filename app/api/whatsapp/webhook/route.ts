@@ -1,5 +1,7 @@
 import { after } from "next/server";
 
+import { dispatchAssistantReplies } from "@/modules/assistant";
+import { composeReplyToInboundMessage } from "@/modules/assistant/composition";
 import { verifyHandshake, verifySignature } from "@/modules/channels/whatsapp";
 import { composeIngestWhatsAppWebhook } from "@/modules/channels/whatsapp/composition";
 import { serverEnv } from "@/shared/env.server";
@@ -31,6 +33,13 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const ingest = composeIngestWhatsAppWebhook();
-  after(() => ingest.execute(rawBody));
+  after(async () => {
+    try {
+      const created = await ingest.execute(rawBody);
+      await dispatchAssistantReplies(() => composeReplyToInboundMessage(), created);
+    } catch {
+      // El 200 ya salió: ningún fallo del asistente debe provocar reintentos de Meta.
+    }
+  });
   return new Response("OK", { status: 200 });
 }

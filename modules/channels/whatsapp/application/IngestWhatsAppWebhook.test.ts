@@ -67,7 +67,7 @@ describe("IngestWhatsAppWebhook", () => {
   it("phone_number_id desconocido: guarda el evento con error y no lanza", async () => {
     const store = new InMemoryChannelStore({});
     const ingest = new IngestWhatsAppWebhook(store, store, store);
-    await expect(ingest.execute(raw(textPayload()))).resolves.toBeUndefined();
+    await expect(ingest.execute(raw(textPayload()))).resolves.toEqual([]);
     expect(store.events.get("wamid.TEXT1")).toMatchObject({ tenantId: null, processed: false });
     expect(store.events.get("wamid.TEXT1")!.error).toMatch(/phone_number_id/);
     expect(store.messages.size).toBe(0);
@@ -79,7 +79,7 @@ describe("IngestWhatsAppWebhook", () => {
     store.upsertContact = async () => {
       throw new Error("db caída");
     };
-    await expect(ingest.execute(raw(textPayload()))).resolves.toBeUndefined();
+    await expect(ingest.execute(raw(textPayload()))).resolves.toEqual([]);
     expect(store.events.get("wamid.TEXT1")).toMatchObject({
       tenantId: TENANT,
       processed: false,
@@ -150,6 +150,21 @@ describe("IngestWhatsAppWebhook", () => {
     expect(calls).toHaveLength(0);
     expect(store.events.get("call:wacid.CALL1:connect")).toMatchObject({ processed: false });
     expect(store.events.get("call:wacid.CALL1:connect")?.error).toMatch(/phone_number_id/);
+  });
+
+  it("devuelve solo los mensajes nuevos para disparar la respuesta del asistente", async () => {
+    const { store, ingest } = setup();
+    const created = await ingest.execute(raw(textPayload("wamid.NEW")));
+    expect(created).toEqual([
+      {
+        tenantId: TENANT,
+        conversationId: expect.any(String),
+        messageId: "wamid.NEW",
+        kind: "text",
+      },
+    ]);
+    expect(await ingest.execute(raw(textPayload("wamid.NEW")))).toEqual([]);
+    expect(store.messages.size).toBe(1);
   });
 
   it("statuses y cuerpos inválidos se guardan como evento sin crear mensajes ni lanzar", async () => {

@@ -302,3 +302,52 @@ Decisiones y deudas del handoff `odd/handoffs/S06-inbox-redesign.md`.
   descarta al persistir y no hay alerta.
 - **Sin verificar contra Meta ni LiveKit reales:** la desconexión `BUSINESS_INITIATED` solo se probó con
   dobles.
+
+## S11 · Responder texto con IA
+
+Handoff: `odd/handoffs/S11-ai-text-reply.md`. Módulo nuevo `modules/assistant` (dominio, aplicación,
+infraestructura, composición y `index.ts`), sin migraciones.
+
+### Decisiones
+
+- **Disparo desde la ingesta:** `IngestWhatsAppWebhook.execute` devuelve los mensajes insertados
+  (`created === true` en `insertMessageIfNew`). El webhook ya usaba `after()` de `next/server`; solo se
+  amplió ese callback con `dispatchAssistantReplies`, que absorbe cualquier error. Así la respuesta 200
+  a Meta no espera al LLM ni a Graph.
+- **Idempotencia sin migración:** el reclamo usa `webhook_events` con `provider = "assistant"` y
+  `event_id = reply:<wamid>` y `ON CONFLICT DO NOTHING`. El mismo wamid nunca genera dos respuestas,
+  aunque Meta reenvíe el evento o se reintente el caso de uso.
+- **Anti-bucle:** se descartan mensajes `direction = "outbound"` y ecos del propio número. El número
+  propio se toma de `business_profiles.contact_phone`, con respaldo en
+  `whatsapp_numbers.display_phone`, normalizando dígitos.
+- **Mensajes no textuales:** la regla 2 pide una respuesta fija corta para audio/imagen/documento sin
+  LLM; por eso esos mensajes también se despachan, pero el caso de uso usa `TEXT_ONLY_REPLY` y nunca
+  llama al modelo. La integración con LLM queda reservada a `kind = "text"`.
+- **Prompt:** el system prompt se arma solo con el `BusinessContext` del tenant (negocio, horarios,
+  catálogo, FAQs, políticas y mensaje de escalamiento). El texto del cliente viaja como último mensaje
+  de usuario; nunca entra al system prompt.
+- **Proveedores:** Graph usa la versión `v25.0` de `scripts/meta-check.mts` y el token
+  `WHATSAPP_ACCESS_TOKEN`. El modelo sale de `LLM_MODEL` y la key de `GROQ_API_KEY`; ambas son
+  opcionales y su ausencia se registra como error sin romper el webhook. El adaptador de Groq (fetch, sin SDK) se crea con
+  `timeout = 15_000` ms y `maxRetries = 1`.
+- **Errores redactados:** `redactError` sustituye credenciales (Bearer y claves `sk-ant-`) antes de
+  escribir en `webhook_events.error`. Un fallo de Graph impide guardar el outbound.
+
+### Deudas y riesgos
+
+- **Adaptador temporal del negocio:** `SupabaseBusinessContextReader` consulta las cinco tablas con
+  service_role. Cuando `modules/business` exponga `getBusinessContext(tenantId)`, se cambia solo una
+  línea en `modules/assistant/composition.ts`.
+- **Sin verificación real:** no se probaron respuestas reales de Groq ni envíos reales a Meta por
+  falta de credenciales; las pruebas usan dobles y la API local.
+- **Realtime no verificado de extremo a extremo:** el outbound se escribe en la misma tabla `messages`
+  con `direction = "outbound"`, que es lo que consume la bandeja y la publicación Realtime existente;
+  no se abrió un canal Realtime en la prueba.
+- **Tiempo total del LLM:** el timeout de 15 s es por intento de la SDK; con 1 reintento el tiempo de
+  pared puede ser mayor. `after()` está limitado por `maxDuration` de la ruta.
+- **Gasto y token:** el tope es 20 respuestas por hora y conversación (`MAX_REPLIES_PER_HOUR`). Un
+  cambio de ese valor o del modelo afecta costos y comportamiento; los tokens solo viven en variables
+  de entorno del servidor.
+- **Sin reintento automático:** si el LLM o Graph fallan, el error queda en `webhook_events.error`,
+  pero un reenvío de Meta no vuelve a disparar la respuesta porque el mensaje entrante ya existe.
+  La recuperación es manual o requiere un job futuro.
