@@ -23,10 +23,10 @@ export function decideConnectionCard(
       };
     case "pending":
       return {
-        label: "Pendiente",
+        label: "Listo: esperando tu primer mensaje",
         tone: "warn",
-        description: `Guardamos ${phone}. Falta configurar el webhook en Meta para empezar a recibir mensajes.`,
-        showForm: true,
+        description: `${phone} está listo. Cuando alguien te escriba, verás la conversación en la bandeja.`,
+        showForm: false,
       };
     case "disconnected":
       return {

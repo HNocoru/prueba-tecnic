@@ -1,11 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import type { ConnectionCardView, WhatsAppConnection } from "@/modules/channels/whatsapp";
 
 type FormState = { ok: boolean; error: string | null };
-type CopyState = "idle" | "copied" | "error";
 
 interface ConnectWhatsAppCardProps {
   connection: WhatsAppConnection;
@@ -20,7 +19,11 @@ const TONES = {
   idle: "bg-status-none-bg text-status-none-fg",
 } as const;
 
-const inputClass = "rounded-md border border-border bg-background px-3 py-2 text-sm";
+const inputClass =
+  "min-h-11 w-full rounded-md border border-border bg-background px-3 py-2 text-sm";
+
+const hintId = "whatsapp-number-hint";
+const errorId = "whatsapp-number-error";
 
 /** Icono del estado: el color y el texto del badge complementan la señal visual. */
 function StatusIcon({ tone }: { tone: ConnectionCardView["tone"] }) {
@@ -71,20 +74,18 @@ function StatusIcon({ tone }: { tone: ConnectionCardView["tone"] }) {
   );
 }
 
-/** Tarjeta "WhatsApp del negocio": estado real, formulario y guía para pegar en Meta. */
+/** Tarjeta de conexión: la persona solo escribe su número de WhatsApp Business. */
 export function ConnectWhatsAppCard({ connection, view, action }: ConnectWhatsAppCardProps) {
   const [state, formAction, pending] = useActionState(action, { ok: false, error: null });
-  const [copyState, setCopyState] = useState<CopyState>("idle");
-  const hasPublicUrl = connection.webhookUrl.startsWith("http");
+  const [editing, setEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(connection.webhookUrl);
-      setCopyState("copied");
-    } catch {
-      setCopyState("error");
-    }
-  }
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  const showForm = view.showForm || editing;
+  const describedBy = state.error ? `${hintId} ${errorId}` : hintId;
 
   return (
     <section
@@ -97,9 +98,10 @@ export function ConnectWhatsAppCard({ connection, view, action }: ConnectWhatsAp
           style={{ fontFamily: "var(--font-display)" }}
           className="text-xl font-semibold text-text"
         >
-          WhatsApp del negocio
+          {showForm ? "Conecta tu WhatsApp" : "Tu WhatsApp"}
         </h2>
         <span
+          role="status"
           className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${TONES[view.tone]}`}
         >
           <StatusIcon tone={view.tone} />
@@ -108,97 +110,64 @@ export function ConnectWhatsAppCard({ connection, view, action }: ConnectWhatsAp
       </div>
       <p className="text-sm leading-relaxed text-text-2">{view.description}</p>
 
-      {view.showForm ? (
-        <form action={formAction} className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            Número visible de WhatsApp
-            <input
-              name="displayPhone"
-              type="tel"
-              required
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="+5215512345678"
-              defaultValue={connection.displayPhone ?? ""}
-              aria-describedby="whatsapp-displayPhone-hint"
-              className={inputClass}
-            />
+      {showForm ? (
+        <form action={formAction} noValidate className="flex flex-col gap-3">
+          <label htmlFor="whatsapp-number" className="text-sm font-medium text-text">
+            Número de WhatsApp Business
           </label>
-          <p id="whatsapp-displayPhone-hint" className="text-xs text-text-2">
-            Escribe el número con código de país, tal como aparece en WhatsApp.
+          <input
+            ref={inputRef}
+            id="whatsapp-number"
+            name="displayPhone"
+            type="tel"
+            required
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="+52 55 1234 5678"
+            defaultValue={connection.displayPhone ?? ""}
+            aria-describedby={describedBy}
+            aria-invalid={state.error ? true : undefined}
+            className={inputClass}
+          />
+          <p id={hintId} className="text-xs leading-relaxed text-text-2">
+            Escríbelo con código de país, por ejemplo +52 55 1234 5678. Debe ser un número
+            registrado en WhatsApp Business.
           </p>
           {state.error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p id={errorId} role="alert" aria-live="assertive" className="text-sm text-destructive">
               {state.error}
             </p>
           )}
-          {state.ok && <p className="text-sm text-status-done-fg">Número guardado.</p>}
+          {state.ok && (
+            <p role="status" aria-live="polite" className="text-sm text-status-done-fg">
+              Número guardado.
+            </p>
+          )}
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex w-fit items-center rounded-full bg-accent px-5 py-2 text-sm font-semibold text-canvas disabled:opacity-60"
+            className="inline-flex min-h-11 w-fit items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-canvas disabled:opacity-60"
           >
-            {pending ? "Guardando…" : "Guardar número"}
+            {pending ? "Conectando…" : "Conectar número"}
           </button>
         </form>
       ) : (
-        <p className="text-sm text-text-2">
-          Número conectado:{" "}
-          <span className="font-semibold text-text">{connection.displayPhone ?? "tu número"}</span>
-        </p>
-      )}
-
-      <div className="min-w-0 rounded-2xl bg-card p-4">
-        <h3 className="text-sm font-semibold text-text">
-          {view.showForm ? "Pega esto en Meta" : "URL del webhook"}
-        </h3>
-        <p className="mt-2 text-xs text-text-2">
-          {view.showForm ? "URL del webhook (Callback URL):" : "Callback URL:"}
-        </p>
-        <code className="mt-1 block break-all text-sm text-text">{connection.webhookUrl}</code>
-        {!hasPublicUrl && (
-          <p className="mt-2 text-xs leading-relaxed text-text-2">
-            No hay URL pública configurada. Antepón el dominio de tu despliegue a esta ruta antes de
-            usarla en Meta.
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+          <p className="min-w-0 break-words text-sm text-text-2">
+            Número conectado:{" "}
+            <span className="font-semibold text-text">
+              {connection.displayPhone ?? "tu número"}
+            </span>
           </p>
-        )}
-
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
           <button
             type="button"
-            onClick={handleCopy}
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-accent px-5 text-sm font-semibold text-canvas transition-colors hover:bg-accent-hover"
+            onClick={() => setEditing(true)}
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-border px-5 text-sm font-semibold text-text transition-colors hover:bg-surface-2"
           >
-            {copyState === "copied" ? "URL copiada" : "Copiar URL del webhook"}
+            Cambiar número
           </button>
-          <div role="status" aria-live="polite" className="min-h-5 text-sm">
-            {copyState === "copied" ? (
-              <span className="sr-only">URL del webhook copiada al portapapeles.</span>
-            ) : null}
-            {copyState === "error" ? (
-              <span className="text-destructive">
-                No se pudo copiar. Selecciona la URL y cópiala manualmente.
-              </span>
-            ) : null}
-          </div>
         </div>
-
-        <p className="mt-3 flex items-start gap-2 text-sm text-text-2">
-          <StatusIcon tone={connection.verifyTokenConfigured ? "ok" : "warn"} />
-          <span>
-            Token de verificación:{" "}
-            {connection.verifyTokenConfigured
-              ? "configurado. Es secreto; no se muestra ni se copia."
-              : "pendiente de configurar en el servidor."}
-          </span>
-        </p>
-        {view.showForm && (
-          <p className="mt-2 text-sm text-text-2">
-            Después de verificar, suscribe el campo{" "}
-            <strong className="font-semibold text-text">messages</strong> del webhook.
-          </p>
-        )}
-      </div>
+      )}
     </section>
   );
 }

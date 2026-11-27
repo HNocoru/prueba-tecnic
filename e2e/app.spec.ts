@@ -55,7 +55,7 @@ test.describe("E2E - Flujos Existentes y Regresión Visual / Funcional", () => {
     await expect(page).toHaveURL(/.*\/login/);
   });
 
-  test("2. Tarjeta WhatsApp del negocio en /home", async ({ page }) => {
+  test("2. Tarjeta de conexión en /home sin datos de plataforma", async ({ page }) => {
     // Iniciar sesión
     await page.goto("/login");
     await page.fill('input[name="email"]', DEMO_EMAIL);
@@ -63,28 +63,29 @@ test.describe("E2E - Flujos Existentes y Regresión Visual / Funcional", () => {
     await page.click('button[type="submit"]');
     await page.waitForURL("**/home**");
 
-    // Si muestra el formulario o el estado conectado
-    const cardTitle = page.locator('h2:has-text("WhatsApp del negocio")');
-    await expect(cardTitle).toBeVisible();
+    const card = page.locator('section[aria-labelledby="whatsapp-card-title"]');
+    await expect(card.getByRole("heading", { level: 2 })).toBeVisible();
 
-    // El cliente solo ve el número visible: nunca el id técnico.
+    // El cliente solo ve su número: nunca el id técnico ni datos de la plataforma.
     await expect(page.locator('input[name="phoneNumberId"]')).toHaveCount(0);
     await expect(page.getByText("phone_number_id")).toHaveCount(0);
+    await expect(card.getByRole("button", { name: /copiar/i })).toHaveCount(0);
 
-    const saveButton = page.locator('button:has-text("Guardar número")');
-    if (await saveButton.isVisible()) {
-      // Validación del servidor antes de cualquier consulta a Graph.
-      await page.fill('input[name="displayPhone"]', "invalido");
-      await saveButton.click();
-
-      const alert = page.locator('p[role="alert"]');
-      await expect(alert).toBeVisible();
-    } else {
-      // Estado conectado: sin pasos de configuración y con acción para copiar la URL.
-      await expect(page.locator('text="Pega esto en Meta"')).toHaveCount(0);
-      await expect(page.getByText(/Después de verificar, suscribe el campo/)).toHaveCount(0);
-      await expect(page.getByRole("button", { name: "Copiar URL del webhook" })).toBeVisible();
+    const connectButton = card.getByRole("button", { name: "Conectar número" });
+    if (!(await connectButton.isVisible())) {
+      await card.getByRole("button", { name: "Cambiar número" }).click();
     }
+    const input = card.getByLabel("Número de WhatsApp Business");
+    await expect(input).toBeVisible();
+    await input.fill("invalido");
+    await connectButton.click();
+
+    await expect(card.locator('p[role="alert"]')).toHaveText(
+      "Escribe el número con código de país, por ejemplo +52 55 1234 5678.",
+    );
+
+    const bodyText = await page.locator("body").innerText();
+    expect(bodyText).not.toMatch(/webhook|verify|token|phone_number_id|\bAPI\b|Meta/i);
   });
 
   test("3. Bandeja de entrada: selección, búsqueda y filtros", async ({ page }) => {

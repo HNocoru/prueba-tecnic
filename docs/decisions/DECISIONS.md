@@ -543,3 +543,22 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   `vitest.config.ts`. Reason: el handoff exige que `pnpm test` cuente pruebas nuevas y la configuración
   original solo descubría `modules/**` y `shared/**`; las pruebas mismas viven en `tests/`, dentro de
   la superficie permitida.
+
+## 2026-11-27 · S21: tarjeta de conexión sin datos de plataforma
+
+- **Modelo de cliente reducido:** `WhatsAppConnection` solo expone `status` y `displayPhone`.
+  Se eliminaron `webhookUrl` y `verifyTokenConfigured` de `GetWhatsAppConnection` y del
+  componente, junto con el botón de copiar y los pasos de configuración. Reason: esa información
+  pertenece a la plataforma; ningún dato de plataforma debe viajar a un componente cliente.
+- **La URL del webhook no se movió a otra pantalla:** sigue siendo responsabilidad del operador y
+  de `pnpm meta:check`. El handoff la ubica en `docs/05-despliegue.md`, que no existe en este
+  worktree; no se creó porque no está en las superficies permitidas.
+- **Estados en lenguaje humano:** `pending` pasó a "Listo: esperando tu primer mensaje" y muestra
+  el número con la acción secundaria "Cambiar número" en lugar del formulario abierto. Reason:
+  esperar el primer mensaje no es una tarea de configuración del cliente.
+- **Errores sin jerga:** formato, número no registrado y fallo del servicio tienen textos
+  acordados; la causa técnica (cuenta de la plataforma ausente, error del proveedor) se registra
+  solo en el log del servidor. Reason: evitar que credenciales o detalles internos lleguen a la UI.
+- **Normalización en servidor:** se aceptan espacios, guiones y paréntesis y se guarda E.164; sin
+  `+` solo se normalizan cadenas de 11 a 15 dígitos para no interpretar un número local como
+  internacional. Reason: conservar la validación S15 y su comparación por dígitos.

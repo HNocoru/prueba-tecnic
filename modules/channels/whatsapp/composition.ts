@@ -32,9 +32,6 @@ export function composeWhatsAppConnection(): {
     connect: new ConnectWhatsAppNumber(store, lookup, {
       wabaId: serverEnv.WHATSAPP_BUSINESS_ACCOUNT_ID,
     }),
-    get: new GetWhatsAppConnection(store, {
-      appUrl: process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, ""),
-      verifyTokenConfigured: Boolean(serverEnv.WHATSAPP_VERIFY_TOKEN),
-    }),
+    get: new GetWhatsAppConnection(store),
   };
 }

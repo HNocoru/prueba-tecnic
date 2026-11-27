@@ -11,44 +11,41 @@ test.describe("Rediseño de /home (A · Mostrador)", () => {
     await login(page);
   });
 
-  test("la tarjeta conectada oculta los pasos de configuración y no expone el token", async ({
+  test("la tarjeta conectada muestra el número y el estado, sin datos de plataforma", async ({
     page,
   }) => {
     const card = page.locator(connectedCard);
 
-    await expect(
-      card.getByRole("heading", { name: "WhatsApp del negocio", level: 2 }),
-    ).toBeVisible();
+    await expect(card.getByRole("heading", { name: "Tu WhatsApp", level: 2 })).toBeVisible();
     await expect(card.getByRole("button", { name: "Guardar número" })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Conectar número" })).toHaveCount(0);
     await expect(card.getByText("Pega esto en Meta")).toHaveCount(0);
     await expect(card.getByText(/suscribe el campo/i)).toHaveCount(0);
+    await expect(card.getByText(/Listo: esperando tu primer mensaje|Conectado/)).toBeVisible();
 
-    // Solo se indica si el secreto está configurado; nunca su valor.
-    await expect(card.getByText(/Token de verificación/i)).toContainText(/configurado|pendiente/i);
     const bodyText = await page.locator("body").innerText();
-    expect(bodyText).not.toMatch(/WHATSAPP_VERIFY_TOKEN|verify[_-]?token/i);
+    expect(bodyText).not.toMatch(/webhook|verify|token|phone_number_id|\bAPI\b|Meta/i);
   });
 
-  test("copiar la URL cambia el texto del botón y anuncia el resultado", async ({ page }) => {
-    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-
+  test("cambiar número abre el mismo formulario y no ofrece copiar nada", async ({ page }) => {
     const card = page.locator(connectedCard);
-    const webhookUrl = (await card.locator("code").first().innerText()).trim();
-    expect(webhookUrl).toMatch(/^(\/|https?:\/\/)/);
+    const changeButton = card.getByRole("button", { name: "Cambiar número" });
+    await expect(changeButton).toBeVisible();
+    await changeButton.click();
 
-    // El nombre accesible cambia a "URL copiada"; el localizador debe ser estable.
-    const copyButton = card.locator('button[type="button"]');
-    await expect(copyButton).toHaveText("Copiar URL del webhook");
-    await copyButton.click();
+    await expect(card.getByRole("heading", { name: "Conecta tu WhatsApp" })).toBeVisible();
+    const input = card.getByLabel("Número de WhatsApp Business");
+    await expect(input).toBeVisible();
+    await expect(input).toBeFocused();
+    await expect(
+      card.getByText(
+        "Escríbelo con código de país, por ejemplo +52 55 1234 5678. Debe ser un número registrado en WhatsApp Business.",
+      ),
+    ).toBeVisible();
+    await expect(card.getByRole("button", { name: "Conectar número" })).toBeVisible();
 
-    await expect(copyButton).toHaveText("URL copiada");
-    await expect(card.getByRole("status")).toContainText(
-      "URL del webhook copiada al portapapeles.",
-    );
-
-    const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
-    expect(clipboardText).toBe(webhookUrl);
-    expect(clipboardText).not.toMatch(/token/i);
+    await expect(card.locator("code")).toHaveCount(0);
+    await expect(card.getByRole("button", { name: /copiar/i })).toHaveCount(0);
   });
 
   test("sin violaciones axe serious o critical en /home", async ({ page }) => {

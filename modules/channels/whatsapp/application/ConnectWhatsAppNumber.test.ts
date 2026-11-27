@@ -74,7 +74,7 @@ describe("ConnectWhatsAppNumber", () => {
     expect(store.rows.get("t1")?.phoneNumberId).toBe(ACCOUNT_NUMBER.phoneNumberId);
   });
 
-  it.each(["", "5215512345678", "+0123", "55 1234 5678", "+52 1 55-12"])(
+  it.each(["", "5215512345", "+0123", "55 1234 5678", "+52 1 55-12"])(
     "rechaza %s sin guardar ni consultar Graph",
     async (displayPhone) => {
       const store = new InMemoryNumberStore();
@@ -83,7 +83,10 @@ describe("ConnectWhatsAppNumber", () => {
         displayPhone,
       });
 
-      expect(result.ok).toBe(false);
+      expect(result).toEqual({
+        ok: false,
+        error: "Escribe el número con código de país, por ejemplo +52 55 1234 5678.",
+      });
       expect(store.rows.size).toBe(0);
       expect(lookup.calls).toBe(0);
     },
@@ -99,7 +102,7 @@ describe("ConnectWhatsAppNumber", () => {
     expect(result).toEqual({
       ok: false,
       error:
-        "Ese número no está registrado en WhatsApp Business. Verifícalo con tu proveedor e inténtalo de nuevo.",
+        "No encontramos ese número como cuenta de WhatsApp Business. Revisa que esté registrado e inténtalo de nuevo.",
     });
     expect(store.rows.size).toBe(0);
   });
@@ -111,7 +114,7 @@ describe("ConnectWhatsAppNumber", () => {
 
     expect(result).toEqual({
       ok: false,
-      error: "No pudimos verificar tu número con WhatsApp. Inténtalo de nuevo.",
+      error: "No pudimos verificar el número ahora. Inténtalo de nuevo en unos minutos.",
     });
     expect(errorOf(result)).not.toContain("SECRETO-GRAPH");
     expect(errorOf(result)).not.toContain("Bearer");
@@ -128,7 +131,7 @@ describe("ConnectWhatsAppNumber", () => {
 
     expect(result).toEqual({
       ok: false,
-      error: "Falta configurar la cuenta de WhatsApp Business de la plataforma.",
+      error: "No pudimos verificar el número ahora. Inténtalo de nuevo en unos minutos.",
     });
     expect(lookup.calls).toBe(0);
     expect(store.rows.size).toBe(0);
@@ -150,25 +153,9 @@ describe("ConnectWhatsAppNumber", () => {
 });
 
 describe("GetWhatsAppConnection", () => {
-  const config = { appUrl: "https://app.test", verifyTokenConfigured: true };
-
-  it("sin número devuelve no conectado y la URL del webhook", async () => {
-    const r = await new GetWhatsAppConnection(new InMemoryNumberStore(), config).execute("t1");
-    expect(r).toEqual({
-      status: "not_connected",
-      displayPhone: null,
-      webhookUrl: "https://app.test/api/whatsapp/webhook",
-      verifyTokenConfigured: true,
-    });
-  });
-
-  it("sin URL pública usa ruta relativa", async () => {
-    const r = await new GetWhatsAppConnection(new InMemoryNumberStore(), {
-      appUrl: undefined,
-      verifyTokenConfigured: false,
-    }).execute("t1");
-    expect(r.webhookUrl).toBe("/api/whatsapp/webhook");
-    expect(r.verifyTokenConfigured).toBe(false);
+  it("sin número devuelve solo el estado y un número vacío", async () => {
+    const r = await new GetWhatsAppConnection(new InMemoryNumberStore()).execute("t1");
+    expect(r).toEqual({ status: "not_connected", displayPhone: null });
   });
 
   it("devuelve el número guardado y nunca expone el id técnico al cliente", async () => {
@@ -177,13 +164,12 @@ describe("GetWhatsAppConnection", () => {
       "t1",
       valid,
     );
-    const r = await new GetWhatsAppConnection(store, config).execute("t1");
+    const r = await new GetWhatsAppConnection(store).execute("t1");
 
     expect(r.status).toBe("pending");
     expect(r.displayPhone).toBe(valid.displayPhone);
-    expect(Object.keys(r).sort()).toEqual(
-      ["displayPhone", "status", "verifyTokenConfigured", "webhookUrl"].sort(),
-    );
+    expect(Object.keys(r).sort()).toEqual(["displayPhone", "status"]);
     expect(JSON.stringify(r)).not.toContain(ACCOUNT_NUMBER.phoneNumberId);
+    expect(JSON.stringify(r)).not.toMatch(/webhook|verify|token/i);
   });
 });

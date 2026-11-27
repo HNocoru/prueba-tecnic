@@ -30,7 +30,7 @@ function uc(
   return { store, connect: new ConnectWhatsAppNumber(store, lookup, { wabaId }) };
 }
 
-describe("verifier own probes — S15", () => {
+describe("verifier own probes — S15/S21", () => {
   it("acepta el número tal como lo ve el usuario, guarda pending y no expone el id", async () => {
     const { store, connect } = uc(fakeLookup().lookup);
     const result = await connect.execute("t-own", { displayPhone: "+52 1 55-1234 5678" });
@@ -40,11 +40,9 @@ describe("verifier own probes — S15", () => {
       displayPhone: "+5215512345678",
       status: "pending",
     });
-    const view = await new GetWhatsAppConnection(store, {
-      appUrl: undefined,
-      verifyTokenConfigured: true,
-    }).execute("t-own");
+    const view = await new GetWhatsAppConnection(store).execute("t-own");
     expect(JSON.stringify(view)).not.toContain(id);
+    expect(JSON.stringify(view)).not.toMatch(/webhook|verify|token/i);
     expect(view.status).toBe("pending");
   });
 
@@ -52,12 +50,12 @@ describe("verifier own probes — S15", () => {
     [
       [],
       undefined,
-      "Ese número no está registrado en WhatsApp Business. Verifícalo con tu proveedor e inténtalo de nuevo.",
+      "No encontramos ese número como cuenta de WhatsApp Business. Revisa que esté registrado e inténtalo de nuevo.",
     ],
     [
       [],
       new Error("Bearer SECRETO-PROBE {body}"),
-      "No pudimos verificar tu número con WhatsApp. Inténtalo de nuevo.",
+      "No pudimos verificar el número ahora. Inténtalo de nuevo en unos minutos.",
     ],
   ])("mensajes exactos sin filtrar de Graph", async (numbers, err, expected) => {
     const { lookup, seen } = fakeLookup(numbers as (typeof okNumber)[], err as Error | undefined);
@@ -76,7 +74,7 @@ describe("verifier own probes — S15", () => {
     });
     expect(await missingConnect.execute("t-own", { displayPhone: "+5215512345678" })).toEqual({
       ok: false,
-      error: "Falta configurar la cuenta de WhatsApp Business de la plataforma.",
+      error: "No pudimos verificar el número ahora. Inténtalo de nuevo en unos minutos.",
     });
     expect(missingStore.rows.size).toBe(0);
 
@@ -87,7 +85,7 @@ describe("verifier own probes — S15", () => {
     expect(store.rows.has("t2")).toBe(false);
   });
 
-  it.each(["", "5215512345678", "+01234567", "+1234567890123456", "invalido"])(
+  it.each(["", "+01234567", "+1234567890123456", "invalido", "55 1234 5678"])(
     "rechaza %s con el mensaje de validación exacto y sin consultar Graph",
     async (displayPhone) => {
       const { lookup, seen } = fakeLookup();
@@ -95,7 +93,7 @@ describe("verifier own probes — S15", () => {
       const result = await connect.execute("t-own", { displayPhone });
       expect(result).toEqual({
         ok: false,
-        error: "El número debe estar en formato internacional, ej. +5215512345678.",
+        error: "Escribe el número con código de país, por ejemplo +52 55 1234 5678.",
       });
       expect(seen).toEqual([]);
       expect(store.rows.size).toBe(0);

@@ -1,28 +1,35 @@
 import { normalizePhone } from "@/modules/assistant";
+import { logger } from "@/shared/logger";
 import { z } from "zod";
 
 import type { WhatsAppNumberLookup, WhatsAppNumberStore } from "./ports";
 
-/** Acepta espacios y guiones: el usuario escribe el número tal como lo ve. */
+const INVALID_FORMAT = "Escribe el número con código de país, por ejemplo +52 55 1234 5678.";
+
+/**
+ * Acepta espacios, guiones y paréntesis: el usuario escribe el número tal como lo ve.
+ * Sin '+', solo se normaliza si ya trae código de país (11 a 15 dígitos), para no
+ * interpretar un número local como E.164.
+ */
 const displayPhoneSchema = z.preprocess(
-  (value) => (typeof value === "string" ? value.replace(/[\s-]/g, "") : value),
-  z
-    .string()
-    .regex(
-      /^\+[1-9]\d{7,14}$/,
-      "El número debe estar en formato internacional, ej. +5215512345678.",
-    ),
+  (value) => {
+    if (typeof value !== "string") return value;
+    const compact = value.replace(/[\s\-().]/g, "");
+    if (compact.startsWith("+") || !/^\d{11,15}$/.test(compact)) return compact;
+    return `+${compact}`;
+  },
+  z.string().regex(/^\+[1-9]\d{7,14}$/, INVALID_FORMAT),
 );
 
 export const connectInputSchema = z.object({ displayPhone: displayPhoneSchema });
 
 export type ConnectResult = { ok: true } | { ok: false; error: string };
 
+/** Texto para la persona: la causa técnica se registra en el servidor, nunca se devuelve. */
 const ERRORS = {
-  wabaMissing: "Falta configurar la cuenta de WhatsApp Business de la plataforma.",
+  unavailable: "No pudimos verificar el número ahora. Inténtalo de nuevo en unos minutos.",
   notRegistered:
-    "Ese número no está registrado en WhatsApp Business. Verifícalo con tu proveedor e inténtalo de nuevo.",
-  graphFailed: "No pudimos verificar tu número con WhatsApp. Inténtalo de nuevo.",
+    "No encontramos ese número como cuenta de WhatsApp Business. Revisa que esté registrado e inténtalo de nuevo.",
   taken: "Ese número ya está conectado a otro negocio.",
 } as const;
 
@@ -40,15 +47,19 @@ export class ConnectWhatsAppNumber {
   async execute(tenantId: string, input: unknown): Promise<ConnectResult> {
     const parsed = connectInputSchema.safeParse(input);
     if (!parsed.success) {
-      return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+      return { ok: false, error: parsed.error.issues[0]?.message ?? INVALID_FORMAT };
     }
-    if (!this.config.wabaId) return { ok: false, error: ERRORS.wabaMissing };
+    if (!this.config.wabaId) {
+      logger.warn("ConnectWhatsAppNumber: falta la cuenta de WhatsApp Business de la plataforma");
+      return { ok: false, error: ERRORS.unavailable };
+    }
 
     let accountNumbers;
     try {
       accountNumbers = await this.lookup.listPhoneNumbers(this.config.wabaId);
     } catch {
-      return { ok: false, error: ERRORS.graphFailed };
+      logger.warn("ConnectWhatsAppNumber: el proveedor no pudo verificar el número");
+      return { ok: false, error: ERRORS.unavailable };
     }
 
     const digits = normalizePhone(parsed.data.displayPhone);

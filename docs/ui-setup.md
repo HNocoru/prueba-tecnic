@@ -287,12 +287,11 @@ Rama `feat/ui-p3-login-home`, creada desde `feat/ui-p2-fundacion` (683a5a7). Sin
 - **Login como Server Component:** solo `login-form.tsx` es cliente; el hero con `--color-hero`
   y el titular con `--font-display` se renderizan en servidor. El control de mostrar/ocultar
   contraseña es un `<button>` nativo con nombre y estado accesibles, sin librería de iconos.
-- **Tarjeta de WhatsApp:** el título es "WhatsApp del negocio" (no "Conectar WhatsApp") para
-  que no contradiga el badge "Conectado". El badge combina icono, texto y color del token de
-  estado. Con `showForm === false` se omiten el formulario y los pasos de Meta (incluida la
-  suscripción a `messages`); la URL del webhook y su botón de copiar siguen disponibles. El token
-  de verificación nunca se muestra ni se copia: solo se informa si está configurado. Si no hay
-  `NEXT_PUBLIC_APP_URL`, se muestra la ruta relativa con una nota.
+- **Tarjeta de WhatsApp (revisada en S21):** con el formulario abierto el título es
+  "Conecta tu WhatsApp"; cuando el número ya está ligado es "Tu WhatsApp". La persona solo ve
+  su número, el estado en lenguaje humano y el botón secundario "Cambiar número". S21 retiró
+  del modelo y del componente la URL del webhook, el token de verificación, el botón de copiar
+  y los pasos de configuración.
 - **Saludo de home fiel al estado:** el encabezado cambia su texto según la conexión ("Tu
   WhatsApp ya está contestando…" cuando `tone === "ok"`, si no la invitación a conectar). El
   artboard personaliza con nombre y negocio; aquí se omite porque `/home` no recibe esos datos y

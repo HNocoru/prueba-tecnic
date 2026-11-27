@@ -10,11 +10,11 @@ describe("decideConnectionCard", () => {
       showForm: false,
     });
   });
-  it("pendiente: espera el primer mensaje y permite editar", () => {
+  it("pendiente: espera el primer mensaje y permite cambiar el número", () => {
     expect(decideConnectionCard("pending", "+5215512345678")).toMatchObject({
-      label: "Pendiente",
+      label: "Listo: esperando tu primer mensaje",
       tone: "warn",
-      showForm: true,
+      showForm: false,
     });
   });
   it("no conectado", () => {
