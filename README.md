@@ -1,118 +1,173 @@
 # Asistente IA de WhatsApp (voz y texto) — prueba técnica 1to1ai
 
-App web multi-negocio: alguien llama o escribe al WhatsApp de un negocio, una IA lo
-atiende en español de México y en el dashboard queda quién fue, qué se dijo y cómo
-terminó.
+App web multi-negocio: alguien llama o escribe al WhatsApp de un negocio, una IA lo atiende en
+español de México y, en una página, queda **quién fue, qué se dijo y cómo terminó**.
+
+## Qué hace
+
+- **Cualquier negocio puede usarla.** Cada persona se registra en `/signup`, configura su negocio
+  (perfil, horarios, catálogo, preguntas frecuentes, tono del asistente) y liga su número de
+  WhatsApp. Los datos de cada negocio están aislados por tenant con RLS en Supabase.
+- **Texto:** un mensaje entrante crea el contacto (la primera vez), se guarda en su conversación y
+  el asistente responde por la Graph API de WhatsApp.
+- **Voz:** una llamada entrante se contesta por el WhatsApp Connector de LiveKit; un worker de voz
+  (repo aparte, `pt-worker`) conversa y la app guarda turnos, duración, cierre y resumen.
+- **Memoria compartida:** el resumen de cada llamada y de cada conversación de texto se guarda por
+  contacto; si vuelve por voz o por texto, el asistente ya sabe de qué hablaron.
+- **Solicitudes:** el asistente puede abrir una solicitud (pendiente, en proceso o cancelada) a
+  partir de la conversación y nunca la marca como completada. El importe sale solo del catálogo.
+- **Dashboard:** bandeja con conversaciones, línea de tiempo de mensajes y llamadas (con
+  transcripción y resumen), contactos y estado de cada chat, en tiempo real.
+- **Tope de 5 minutos por llamada:** a los 4:30 el asistente se despide y a los 5:00 se cuelga.
+
+## Arquitectura
+
+```
+Meta (WhatsApp Cloud API)
+  ├─ messages ──► POST /api/whatsapp/webhook ─► app Next.js (Vercel) ─► Supabase (Postgres, Auth, Realtime)
+  │                      │ firma HMAC + idempotencia              ▲
+  │                      └─► asistente de texto (Groq) ──► Graph API (respuesta)
+  └─ calls ─────► webhook ─► LiveKit WhatsApp Connector ─► worker de voz (pt-worker, Python)
+                                                              │  GET /context · POST /turns · POST /end
+                                                              └──► /api/internal/calls/* (token compartido)
+```
+
+- **App única de Next.js** en la raíz: `app/` (rutas), `modules/` (dominio hexagonal), `components/`
+  (UI), `shared/` (entorno, Supabase, logger). Los módulos solo se importan por su `index.ts`
+  (`pnpm arch` lo verifica).
+- **Módulos:** `auth`, `business`, `channels/whatsapp`, `conversations`, `assistant` (texto),
+  `calls`, `memory`.
+- **Contexto compartido:** el texto y la voz leen el negocio con el mismo caso de uso
+  (`GetBusinessContext`) y la misma memoria por contacto (`contact_memory`).
+- **Base de datos:** migraciones en `supabase/migrations` (8) con pruebas pgTAP en
+  `supabase/tests`.
+- El contrato entre la app y el worker está en [`docs/04-worker-contract.md`](docs/04-worker-contract.md);
+  la arquitectura completa, en [`docs/02-architecture.md`](docs/02-architecture.md).
 
 ## Stack
 
-- Next.js + TypeScript + Tailwind + shadcn/ui + Supabase (Postgres, Auth, Realtime, Storage) en Vercel.
-- Worker de voz en repo aparte `pt-worker` (Python, LiveKit Agents + Phonic), fuera de Vercel.
-- App única de Next.js en la raíz (`app/`, `modules/`, `components/`, `shared/`); tipos generados de Supabase en `shared/db`.
+Next.js 16 · TypeScript · Tailwind CSS 4 · Supabase (Postgres, Auth, Realtime) · Vercel.
+LLM de texto: Groq (modelo por variable de entorno). Voz: LiveKit Agents + Phonic (speech-to-speech)
+en el worker. Ver [Decisiones y límites](#decisiones-y-límites-conocidos) para lo que difiere del PDF.
 
-## Cómo correr el proyecto localmente (sin WhatsApp)
-
-Este es el entregable del slice 00: una URL pública donde se puede iniciar sesión y ver
-`/contacts` protegido. Sin WhatsApp: no hay webhook, ni worker de voz, ni integración con
-Meta en esta fase.
+## Cómo correrlo en local
 
 ### Requisitos
 
-- Node.js y pnpm.
-- Supabase CLI (con Docker disponible) para la base de datos local.
+Node.js, pnpm, Docker y la CLI de Supabase (`pnpm exec supabase`).
 
 ### Pasos
 
-1. Instalar dependencias:
+1. Instalar dependencias: `pnpm install`.
+2. Levantar Supabase local: `pnpm db:start`.
+3. Crear un `.env` en la raíz (no se versiona) con las variables de la
+   [tabla de abajo](#variables-de-entorno). Los valores locales de Supabase salen de
+   `pnpm exec supabase status -o env`.
+4. Crear la base con migraciones y datos de demostración: `pnpm db:reset`.
+5. Crear el usuario demo (solo local): `DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD='DemoPassword123!' pnpm db:seed-user`.
+6. Levantar la app: `pnpm dev` y abrir `http://localhost:3000`.
 
-   ```bash
-   pnpm install
-   ```
+Con el usuario demo se ve un negocio con conversaciones, llamadas y solicitudes de ejemplo. Para
+probar el alta desde cero, entra a `/signup` y crea una cuenta nueva.
 
-2. Levantar Supabase local:
-
-   ```bash
-   pnpm db:start
-   ```
-
-3. Ejecutar las pruebas de aislamiento RLS (pgTAP) contra Supabase local:
-
-   ```bash
-   pnpm db:test
-   ```
-
-4. Crear el usuario demo (requiere variables de entorno locales en `.env`, no versionado):
-
-   ```bash
-   pnpm db:seed-user
-   ```
-
-5. Levantar la app:
-
-   ```bash
-   pnpm dev
-   ```
-
-6. Checks del repositorio y pruebas automatizadas:
-
-   ```bash
-   pnpm lint
-   pnpm typecheck
-   pnpm test
-   pnpm arch
-   pnpm test:integration
-   pnpm test:e2e
-   ```
-
-### Pruebas E2E de navegador (Playwright)
-
-Para ejecutar la suite E2E de Playwright:
-
-1. Asegúrate de tener Supabase local corriendo (`pnpm db:start`) y el usuario demo sembrado:
-   ```bash
-   pnpm db:seed-user
-   ```
-2. Compila la app (`pnpm build`). Playwright inicia y detiene por sí mismo el servidor
-   (`next start -p 3200`, `reuseExistingServer: false`): si el puerto 3200 está ocupado, la
-   ejecución falla de inmediato en lugar de probar un servidor viejo. El servidor hereda el
-   entorno de quien ejecuta el comando; necesita `NEXT_PUBLIC_SUPABASE_URL`,
-   `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` (valores locales de
-   `pnpm exec supabase status -o env`; las `NEXT_PUBLIC_*` también deben estar presentes al compilar).
-3. Ejecuta Playwright con las credenciales demo y el entorno de Supabase:
-   ```bash
-   DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD=DemoPassword123! pnpm test:e2e
-   ```
-   Puedes usar `PLAYWRIGHT_BASE_URL` para apuntar a otra URL y `PLAYWRIGHT_PORT` para cambiar el puerto.
-   _Nota:_ Las capturas de pantalla y videos generados en caso de fallos se almacenan fuera del repositorio (`/tmp/playwright-artifacts`).
+> `pnpm db:reset` **borra todos los datos locales**, incluidas las cuentas que hayas creado, y la
+> sesión de un usuario borrado sigue pareciendo válida hasta que se cierra. No lo corras mientras
+> alguien prueba la app. Para una base vacía, sin el negocio demo: `pnpm exec supabase db reset --no-seed`.
 
 ### Variables de entorno
 
-El adaptador de Supabase espera, entre otras, `NEXT_PUBLIC_SUPABASE_URL` y
-`NEXT_PUBLIC_SUPABASE_ANON_KEY`. El archivo de ejemplo y la configuración del entorno
-quedan pendientes (creado por el humano; bloqueo por política de seguridad).
+Solo servidor, salvo las `NEXT_PUBLIC_*`. Nunca se imprimen ni se envían al navegador.
 
-## Comandos disponibles
+| Variable                                                    | Obligatoria        | Para qué                                                       |
+| ----------------------------------------------------------- | ------------------ | -------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Sí                 | Cliente de Supabase (también al compilar)                      |
+| `SUPABASE_SERVICE_ROLE_KEY`                                 | Sí                 | Escritura del servidor: webhook, API interna, memoria          |
+| `WHATSAPP_APP_SECRET`                                       | Sí                 | Verifica la firma `X-Hub-Signature-256` del webhook            |
+| `WHATSAPP_VERIFY_TOKEN`                                     | Sí                 | Verificación del webhook al configurarlo en Meta               |
+| `WORKER_API_TOKEN`                                          | Sí                 | Secreto compartido con el worker para `/api/internal/*`        |
+| `WHATSAPP_ACCESS_TOKEN`                                     | Para responder     | Enviar mensajes y contestar llamadas                           |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID`                              | Para ligar números | Cuenta de WhatsApp Business de la plataforma                   |
+| `GROQ_API_KEY`, `LLM_MODEL`                                 | Para el texto      | Sin ellas el asistente registra el fallo y no rompe el webhook |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`      | Para llamadas      | WhatsApp Connector de LiveKit Cloud                            |
+| `LOG_LEVEL`                                                 | No                 | Nivel de log (`info` por defecto)                              |
 
-Todos los comandos listados arriba existen en el `package.json` del repositorio.
+## Conectar WhatsApp (número de prueba de Meta)
 
-| Comando             | Descripción                                  |
-| ------------------- | -------------------------------------------- |
-| `pnpm install`      | Instalar dependencias del workspace.         |
-| `pnpm db:start`     | Levantar Supabase local.                     |
-| `pnpm db:test`      | Probar aislamiento RLS (pgTAP) contra local. |
-| `pnpm db:seed-user` | Crear usuario demo.                          |
-| `pnpm dev`          | Levantar la app Next.js.                     |
-| `pnpm lint`         | Linter.                                      |
-| `pnpm typecheck`    | Tipos.                                       |
-| `pnpm test`         | Tests.                                       |
-| `pnpm arch`         | Reglas de arquitectura (dependency-cruiser). |
+1. En [developers.facebook.com](https://developers.facebook.com) crea una app con el caso de uso de
+   WhatsApp y usa el número de prueba que Meta entrega.
+2. En la configuración del número **activa las llamadas** (vienen apagadas).
+3. En la configuración del webhook usa `https://<tu-dominio>/api/whatsapp/webhook` y tu
+   `WHATSAPP_VERIFY_TOKEN`, y suscribe los campos **`messages`** y **`calls`**.
+   En local, expón el puerto con un túnel (por ejemplo `ngrok http 3000`).
+4. Agrega a la lista de destinatarios (máximo 5) los teléfonos que recibirán respuestas por
+   **texto**. Cualquier teléfono puede **llamar**.
+5. `pnpm meta:check` revisa la suscripción de la cuenta; con `--fix <URL>` la corrige.
+6. En el dashboard, en el inicio, escribe el número de WhatsApp Business del negocio. El servidor
+   comprueba que exista en la cuenta de la plataforma y lo liga. El cliente nunca ve el webhook, el
+   token ni identificadores internos.
 
-## Sin WhatsApp
+## Voz (worker)
 
-En esta fase no se integra WhatsApp, LLM ni voz. El flujo local corre sobre Supabase y la
-autenticación; el resto de slices añade los canales.
+El worker vive en el repo hermano `pt-worker` (Python, LiveKit Agents + Phonic). Habla con la app
+solo por HTTP con el contrato de `docs/04-worker-contract.md` y se registra como `whatsapp-agent`.
+Necesita la URL de la app y `WORKER_API_TOKEN`. Debe estar encendido para contestar llamadas.
 
-## Verificación
+## Pruebas
 
-- `pnpm lint && pnpm arch` en verde.
-- Cada comando del README existe en el `package.json`.
+| Comando                                      | Qué cubre                                               |
+| -------------------------------------------- | ------------------------------------------------------- |
+| `pnpm lint` · `pnpm typecheck` · `pnpm arch` | Estilo, tipos y reglas de dependencias entre módulos    |
+| `pnpm test`                                  | Pruebas unitarias (Vitest)                              |
+| `pnpm db:test`                               | Pruebas pgTAP de RLS y esquema contra Supabase local    |
+| `pnpm test:integration`                      | Integración con Supabase local (requiere usuario demo)  |
+| `pnpm test:e2e`                              | Navegador con Playwright (requiere `pnpm build` previo) |
+
+E2E: la suite arranca su propio servidor en el puerto 3200 y falla de inmediato si está ocupado.
+Necesita `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY`
+del entorno local, y las `NEXT_PUBLIC_*` también al compilar. Con `PLAYWRIGHT_WORKERS=N` corre
+archivos en paralelo (por defecto 1).
+
+Tras un `pnpm db:reset`, Realtime tarda más de un minuto en recuperarse: si fallan solo los tests de
+Realtime, vuelve a correr la integración.
+
+## Seguridad y robustez
+
+- **Webhook firmado:** se verifica `X-Hub-Signature-256` sobre el cuerpo crudo y cada evento es
+  idempotente (`webhook_events`), así que reintentos y duplicados no generan dos respuestas.
+- **RLS por tenant** en todas las tablas; el tenant sale siempre de la sesión o del número, nunca de
+  la entrada del cliente. La clave de servicio solo se usa en el servidor, con `tenant_id` explícito.
+- **Secretos solo en el servidor.** El token del worker protege `/api/internal/*`.
+- **Asistente de texto:** tope de 20 respuestas por hora y conversación, tiempo máximo y un
+  reintento ante fallos del modelo, y el razonamiento interno del modelo nunca se envía al cliente.
+- **Memoria:** se trata como dato no confiable: va en un bloque delimitado, sin saltos de línea y con
+  topes de longitud, para que un cliente no pueda inyectar instrucciones.
+- **Llamadas:** al terminar, el resumen se genera en segundo plano y la respuesta a `end` no espera
+  al modelo.
+
+## Decisiones y límites conocidos
+
+- **shadcn/ui:** el PDF lo pide. El repo tiene su `components.json`, pero la interfaz se construyó
+  con Tailwind y componentes propios sobre tokens de diseño (`components/theme/tokens.ts`); MUI
+  solo aporta el proveedor de tema.
+- **Ligar un número** solo funciona con números registrados en la cuenta de WhatsApp Business de la
+  plataforma. Un alta para cualquier negocio con su propio número requiere Embedded Signup de Meta y
+  un token por negocio; no está construido.
+- **Un solo modelo para texto** (por variable de entorno). El de prueba, `qwen/qwen3.8-27b`, aparece
+  como modelo en vista previa en Groq y puede retirarse con poco aviso.
+- **Notas de voz:** se reconocen, pero el asistente responde con un texto fijo; no se transcriben.
+- **Recuperar contraseña** no está incluido: se entra con el registro de cuenta.
+- **Métricas del inicio** son un espacio reservado ("Disponible pronto").
+- **Completar una solicitud** está reservado al dueño del negocio, pero todavía no hay una pantalla
+  para hacerlo.
+- **Llamadas:** si el worker nunca envía `end`, la fila no se cierra sola; el campo de error del
+  worker no se guarda en la base.
+- **Bandeja:** los filtros por texto buscan solo en las páginas ya cargadas.
+- **Voces del asistente:** `roberto` o `eduardo` (el catálogo de Phonic no es configurable aún).
+
+## Documentación
+
+- [`docs/01-requirements.md`](docs/01-requirements.md) — requerimientos y supuestos.
+- [`docs/02-architecture.md`](docs/02-architecture.md) — arquitectura y decisiones de diseño.
+- [`docs/04-worker-contract.md`](docs/04-worker-contract.md) — contrato app ↔ worker.
+- [`docs/ui-setup.md`](docs/ui-setup.md) — sistema visual y mediciones de rendimiento.
+- [`docs/decisions/DECISIONS.md`](docs/decisions/DECISIONS.md) — registro de decisiones y deudas.
