@@ -269,3 +269,74 @@ Nota: los esqueletos de carga existentes ponen `aria-label` en un `div` sin rol,
 marca como `aria-prohibited-attr` si se analiza durante el Suspense. La prueba de axe espera
 a que no quede ningún `[aria-busy="true"]`; arreglar el esqueleto queda fuera de esta
 fundación (no es una pantalla de esta entrega).
+
+## Parte 3 (S10) · Login y Home
+
+Rama `feat/ui-p3-login-home`, creada desde `feat/ui-p2-fundacion` (683a5a7). Sin commit ni push.
+
+### Decisiones
+
+- **Login con validación propia:** el `<form>` usa `noValidate` para sustituir los mensajes
+  nativos del navegador por los mensajes zod en español. `credentialsSchema` sigue siendo la
+  única fuente de reglas; `loginFieldErrors` solo traduce los issues a errores por campo. En
+  login la contraseña sigue siendo solo "no vacía"; la fuerza se exige en alta/cambio.
+- **Errores sin filtrar información:** las credenciales incorrectas devuelven siempre
+  `Email o contraseña incorrectos.`, sin indicar si el correo existe. Los errores de campo se
+  asocian con `aria-describedby` y `aria-invalid`, se anuncian en español y llevan el foco al
+  primer campo inválido.
+- **Login como Server Component:** solo `login-form.tsx` es cliente; el hero con `--color-hero`
+  y el titular con `--font-display` se renderizan en servidor. El control de mostrar/ocultar
+  contraseña es un `<button>` nativo con nombre y estado accesibles, sin librería de iconos.
+- **Tarjeta de WhatsApp:** el título es "WhatsApp del negocio" (no "Conectar WhatsApp") para
+  que no contradiga el badge "Conectado". El badge combina icono, texto y color del token de
+  estado. Con `showForm === false` se omiten el formulario y los pasos de Meta (incluida la
+  suscripción a `messages`); la URL del webhook y su botón de copiar siguen disponibles. El token
+  de verificación nunca se muestra ni se copia: solo se informa si está configurado. Si no hay
+  `NEXT_PUBLIC_APP_URL`, se muestra la ruta relativa con una nota.
+- **Saludo de home fiel al estado:** el encabezado cambia su texto según la conexión ("Tu
+  WhatsApp ya está contestando…" cuando `tone === "ok"`, si no la invitación a conectar). El
+  artboard personaliza con nombre y negocio; aquí se omite porque `/home` no recibe esos datos y
+  el handoff prohíbe tocar auth.
+- **Campos del login normalizados a texto:** la server action convierte a `""` cualquier valor
+  que no sea string antes de validar, para que un campo ausente no devuelva un mensaje de zod en
+  inglés ni llegue a `parse`.
+- **Métricas sin inventar datos:** la franja es un placeholder de la Parte 5 con `—` y
+  "Disponible pronto"; no se muestran cifras ni se consultan tablas nuevas.
+- **Esqueletos accesibles:** `CardSkeleton` y el esqueleto propio de home usan `role="status"`
+  con texto `sr-only` y barras `aria-hidden`; se retira el `aria-label` en un `div` sin rol.
+- **Sin dependencias nuevas:** MUI sigue limitado al tema global; estas dos pantallas usan
+  utilidades de Tailwind y tokens. El incremento de JS se limita al estado local de los dos
+  componentes interactivos.
+
+### Medición S10 (HTML y JS de cliente, build de producción)
+
+Mismo método que la fundación: `pnpm build` contra Supabase local, `pnpm exec next start -p 3200`
+y navegación real con Playwright; se suma el tamaño de la respuesta HTML y de las respuestas de
+script. Los datos de `/home` se miden con la sesión demo del seed local.
+
+| Ruta     | HTML antes | HTML después | Δ HTML              | JS antes  | JS después | Δ JS              | Peticiones JS |
+| -------- | ---------- | ------------ | ------------------- | --------- | ---------- | ----------------- | ------------- |
+| `/login` | 11 484 B   | 16 825 B     | +5 341 B (+46,5 %)  | 550 936 B | 552 226 B  | +1 290 B (+0,2 %) | 9 → 9         |
+| `/home`  | 34 852 B   | 50 812 B     | +15 960 B (+45,8 %) | 562 432 B | 564 699 B  | +2 267 B (+0,4 %) | 10 → 10       |
+
+El HTML crece por el nuevo contenido visible y por el texto accesible de esqueletos y métricas.
+El JS sube 1,3 kB en `/login` y 2,3 kB en `/home`, sin añadir peticiones: es el estado local
+necesario para mostrar contraseña, foco/errores y copiar la URL. La medición "antes" se repitió
+con el mismo método sobre `683a5a7` y reprodujo exactamente los valores base ya documentados.
+
+### Verificación S10
+
+- `pnpm lint`: exit 0.
+- `pnpm typecheck`: `✓ Types generated successfully`, exit 0.
+- `pnpm test`: `Test Files 23 passed (23)`, `Tests 137 passed (137)`, exit 0.
+- `pnpm arch`: `✔ no dependency violations found (175 modules, 454 dependencies cruised)`, exit 0.
+- `pnpm db:test`: `All tests successful. Files=5, Tests=65`, exit 0.
+- `pnpm test:e2e`: `45 passed (4.0m)`, `5 skipped`, exit 0. Incluye axe sin violaciones
+  serious/critical en `/login` y `/home`, fuentes display cargadas, sin overflow y copia real
+  del webhook.
+- Build con las variables dummy del handoff: exit 0 (sirve para medir y para el build).
+- **Para E2E hay que construir con las claves locales reales**, no con `dummy`: las variables
+  `NEXT_PUBLIC_*` se incrustan en el bundle del cliente y el Realtime de la bandeja falla con
+  `MalformedJWT` si el build usó `dummy`. Con el build de claves locales, los 3 tests de
+  Realtime pasan.
+- No se hicieron commit ni push. No se leyeron ni editaron archivos de entorno.

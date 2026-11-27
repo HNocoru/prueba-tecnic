@@ -5,9 +5,11 @@
 export {
   credentialsSchema,
   emailSchema,
+  loginFieldErrors,
   loginPasswordSchema,
   strongPasswordSchema,
 } from "./application/credentials";
+export type { LoginFieldErrors } from "./application/credentials";
 export { getAuthRedirect } from "./domain/auth-redirect";
 export { getRequireUserRedirect } from "./domain/require-user-redirect";
 export { VERIFIED_USER_HEADER } from "./domain/verified-user";

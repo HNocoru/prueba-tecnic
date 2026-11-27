@@ -55,7 +55,7 @@ test.describe("E2E - Flujos Existentes y Regresión Visual / Funcional", () => {
     await expect(page).toHaveURL(/.*\/login/);
   });
 
-  test("2. Tarjeta Conectar WhatsApp en /home", async ({ page }) => {
+  test("2. Tarjeta WhatsApp del negocio en /home", async ({ page }) => {
     // Iniciar sesión
     await page.goto("/login");
     await page.fill('input[name="email"]', DEMO_EMAIL);
@@ -64,7 +64,7 @@ test.describe("E2E - Flujos Existentes y Regresión Visual / Funcional", () => {
     await page.waitForURL("**/home**");
 
     // Si muestra el formulario o el estado conectado
-    const cardTitle = page.locator('h2:has-text("Conectar WhatsApp")');
+    const cardTitle = page.locator('h2:has-text("WhatsApp del negocio")');
     await expect(cardTitle).toBeVisible();
 
     const saveButton = page.locator('button:has-text("Guardar número")');
@@ -84,8 +84,10 @@ test.describe("E2E - Flujos Existentes y Regresión Visual / Funcional", () => {
       await saveButton.click();
       await expect(page.locator('text="Número guardado."')).toBeVisible();
     } else {
-      // Estado conectado: verifica que muestra el badge o la guía de Meta
-      await expect(page.locator('text="Pega esto en Meta"')).toBeVisible();
+      // Estado conectado: sin pasos de configuración y con acción para copiar la URL.
+      await expect(page.locator('text="Pega esto en Meta"')).toHaveCount(0);
+      await expect(page.getByText(/Después de verificar, suscribe el campo/)).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Copiar URL del webhook" })).toBeVisible();
     }
   });
 

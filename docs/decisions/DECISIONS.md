@@ -351,3 +351,59 @@ infraestructura, composición y `index.ts`), sin migraciones.
 - **Sin reintento automático:** si el LLM o Graph fallan, el error queda en `webhook_events.error`,
   pero un reenvío de Meta no vuelve a disparar la respuesta porque el mensaje entrante ya existe.
   La recuperación es manual o requiere un job futuro.
+
+## Parte 3 del rediseño (S10)
+
+Rama `feat/ui-p3-login-home` desde `feat/ui-p2-fundacion`. Sin commit ni push.
+
+- **Validación del login en español:** `noValidate` + zod por campo. `loginFieldErrors` envuelve
+  `credentialsSchema` sin duplicar reglas; la contraseña en login sigue siendo solo no vacía y
+  la regla fuerte queda reservada para alta/cambio. Error de credenciales genérico, sin revelar
+  si el correo existe. Reason: el navegador mostraba mensajes en inglés y la validación nativa
+  bloqueaba antes de la acción.
+- **Conectado deja de pedir configuración:** cuando `view.showForm` es `false`, la tarjeta oculta
+  el formulario y los pasos de Meta; conserva la URL del webhook y el botón de copiar. El token
+  de verificación nunca se renderiza ni entra al portapapeles. Reason: el estado "Conectado"
+  contradecía la guía que seguía pidiendo suscribir `messages`.
+- **Título "WhatsApp del negocio" y saludo según estado:** se evita que el título "Conectar
+  WhatsApp" acompañe al badge "Conectado" y que el lead pida conectar cuando ya hay número.
+  El saludo personalizado del artboard (nombre y negocio) se omite porque esos datos no llegan a
+  `/home` y el handoff prohíbe tocar auth. Reason: consistencia entre título, badge y copy.
+- **Campos del login normalizados:** la server action convierte a string vacío lo que no sea
+  texto antes de validar; así un campo ausente responde en español y nunca llega a `parse`.
+  Reason: robustez de la frontera con `FormData`.
+- **Métricas declaradas como próximamente:** `—` y "Disponible pronto" hasta la Parte 5, sin
+  cifras inventadas ni consultas nuevas.
+- **Deuda P2 saldada:** los esqueletos de home usan `role="status"` con texto accesible y barras
+  `aria-hidden`; `CardSkeleton` recibe el mismo correctivo para el resto de pantallas.
+- **Deuda P2 saldada:** los titulares de login y home usan `--font-display` de forma explícita;
+  la comprobación queda cubierta con `document.fonts.check` en el navegador. El check debe
+  aplicarse a la primera familia resuelta: pasar la lista completa de `font-family` da falso.
+- **Contención del texto solo para lectores de pantalla:** el `sr-only` de cada métrica de `/home`
+  necesita un contenedor `relative`; sin él se posiciona contra el documento, escapa del `main`
+  con `overflow-y-auto` e infla `html.scrollHeight`. Reason: el shell exige que solo `main`
+  desplace; la corrección es una clase, no un cambio de layout.
+- **Localizadores E2E estables:** el botón de copiar cambia su nombre accesible a "URL copiada",
+  así que la prueba lo localiza por `button[type="button"]`, no por el nombre inicial. Reason: el
+  nombre accesible debe reflejar el nuevo estado; el test no debe depender de él.
+
+### Verificación
+
+- `pnpm lint`, `pnpm typecheck`, `pnpm test` (137/137), `pnpm arch`, `pnpm db:test` (65/65),
+  `pnpm test:e2e` (45 passed, 5 skipped) y build dummy: todos exit 0.
+- La medición "antes" se rehízo sobre `683a5a7` con el mismo método y reprodujo los valores base.
+  HTML: `/login` 11 484 → 16 825 B; `/home` 34 852 → 50 812 B. JS: 550 936 → 552 226 B y
+  562 432 → 564 699 B; peticiones de JS sin cambios (9 y 10).
+- **Aprendizaje de entorno:** el E2E debe correr sobre un build hecho con las claves locales
+  reales; con `NEXT_PUBLIC_*` en `dummy` el Realtime de la bandeja falla por `MalformedJWT`.
+
+### Deudas
+
+- **JS de `/home` ya era alto antes de esta entrega** (562 432 B en la medición base); se vigila
+  que la Parte 3 no lo incremente salvo por la funcionalidad nueva.
+- **Sin juicio de píxeles:** axe, E2E y fuentes se verifican en navegador, pero nadie revisó la
+  composición visual real contra los artboards; queda pendiente una revisión humana de capturas.
+
+## 2026-11-27 · Voz: se mantiene S2S con Phonic
+
+- Se descartó pasar a cascada (Deepgram + Groq + Cartesia). `reference/ai-call-center` es solo referencia de consumo de LLM y respuestas en audio. El worker sigue con S2S (Phonic) y arquitectura basada en servicios; el contrato no cambia.
