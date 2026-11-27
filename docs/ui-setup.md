@@ -41,11 +41,10 @@ donde aporte (p. ej. MUI para tablas o selectores complejos).
 - **Capas CSS.** Declarar el orden `@layer theme, base, mui, components, utilities;` al inicio de
   `globals.css` y activar la opción de capas CSS de MUI para que sus estilos vivan en la capa
   `mui`, por debajo de las utilidades de Tailwind. Así `className` de Tailwind sí sobrescribe.
-  **Por verificar** contra la documentación de MUI 9 antes de implementar (el nombre exacto de la
-  opción puede variar).
-- **Integración con Next.** Falta el paquete `@mui/material-nextjs` (`AppRouterCacheProvider`),
-  que **no se instaló** porque no estaba en la lista. Es necesario para SSR correcto; instalarlo
-  al empezar el rediseño.
+  La opción `enableCssLayer` existe en MUI 9.6 (verificada en los tipos de `@mui/material` y
+  `@mui/material-nextjs`); falta probarla en pantalla al implementar.
+- **Integración con Next.** `@mui/material-nextjs` (`AppRouterCacheProvider`) ya está instalado y
+  es necesario para SSR correcto con App Router.
 - **Tema MUI.** Un solo `ThemeProvider` en un componente cliente, con los colores y la tipografía
   del diseño, para no mantener dos paletas.
 
@@ -61,5 +60,5 @@ donde aporte (p. ej. MUI para tablas o selectores complejos).
 
 ## Skill de diseño
 
-La skill `frontend-design` **no está disponible** en esta máquina. Se usan `gentle-design` y
-`gentle-ui-design`.
+La skill `frontend-design` (anthropics/skills) se instaló de forma global en
+`~/.agents/skills/frontend-design`. Se usa junto con `gentle-design` y `gentle-ui-design`.
