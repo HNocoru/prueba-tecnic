@@ -129,5 +129,156 @@ participantAttributes })` y `disconnectWhatsAppCall(whatsappCallId, whatsappApiK
 
 ### Deudas
 
-- **Tope de 50 conversaciones:** una conversación más antigua no aparece en la lista y su URL directa
-  devuelve "No encontramos esa conversación". Requiere paginación o un `getConversation` en el puerto.
+- ~~**Tope de 50 conversaciones:** una conversación más antigua no aparece en la lista y su URL directa
+  devuelve "No encontramos esa conversación".~~ Resuelto en S04 con paginación y `getConversation`.
+
+## S04 · Rendimiento global y paginación
+
+### Medición (Fase 1, antes de tocar código)
+
+App en producción local (`pnpm build && pnpm start`, puerto 3100) contra Supabase local, con 300
+contactos/conversaciones y una conversación con 600 mensajes. Mediana de 7 peticiones autenticadas;
+«bytes» es el HTML de la respuesta. La instrumentación temporal contó `auth.getUser()` por navegación.
+
+| Ruta                          | Antes (ms) | Después (ms) | Antes (KB) | Después (KB) | `getUser` antes | Después |
+| ----------------------------- | ---------: | -----------: | ---------: | -----------: | --------------: | ------: |
+| `/home`                       |         24 |           21 |       28.5 |         28.8 |               4 |       1 |
+| `/inbox`                      |         27 |           24 |       83.6 |         68.3 |               2 |       1 |
+| `/inbox/[id]` (600 mensajes)  |         62 |           26 |      423.2 |        100.9 |               2 |       1 |
+| `/inbox/[id]?filter=messages` |         56 |           23 |      423.5 |        101.1 |               2 |       1 |
+| `/inbox/[id]?filter=calls`    |         30 |           21 |       87.7 |         85.3 |               2 |       1 |
+| `/contacts`                   |    6 (307) |           18 |        8.1 |         60.3 |               1 |       1 |
+
+**Causa principal: H1 (viajes de autenticación).** Cada navegación de `/home` hacía cuatro
+verificaciones de red (`proxy.getUser` + `requireUser` del layout + dos `resolveTenantId`), y las de
+bandeja dos. Al dejar una sola verificación en el proxy, el tiempo de `/home` y `/inbox` baja ~15 %
+aun en local, donde la latencia de red es mínima; el ahorro real crece con la latencia a Supabase.
+
+**H2 confirmada.** El filtro era navegación completa y volvía a consultar la conversación (56 ms y
+423 KB por clic). Ahora es estado local sobre la timeline cargada: 0 peticiones al cambiar de pestaña.
+La ruta con `?filter=` sigue funcionando para compartir el enlace, pero ya solo carga la primera página.
+
+**H3 confirmada en parte.** La bandeja resolvía tenant, lista, conversación y timeline en cascada.
+Ahora lista, últimos 50 mensajes y llamadas van en un solo `Promise.all`; `getConversation` solo se
+usa para enlaces directos fuera de la primera página.
+
+**H4:** `connection()` del layout era redundante: `requireUser()` ya lee `headers()`. Se eliminó; el
+shell de cada ruta sigue siendo ◐ (Partial Prerender) y el contenido de sesión va dentro de Suspense.
+
+### Decisiones
+
+- **Una verificación por petición:** el proxy valida con `getClaims()` y reenvía el `sub` en la
+  cabecera interna `x-verified-user-id`, sobrescribiéndola siempre. Layout y páginas leen esa
+  identidad con `React.cache()` y `headers()`. La RLS con el JWT de la sesión sigue siendo la
+  autorización real de los datos; si la cabecera falta, `requireUser()` redirige a `/login` (falla cerrado).
+- **Cursor opaco** `(fecha, id)` en base64url, compartido por conversaciones, mensajes y contactos.
+  Un cursor inválido lanza `InvalidCursorError`; las acciones lo traducen a página vacía y las
+  pruebas verifican que no se reinicia la lista en silencio.
+- **Página de 30** en conversaciones/contactos y **50 mensajes**; botón «Cargar más» / «Cargar
+  anteriores» (sin observer). Las llamadas de una conversación se siguen cargando completas.
+- **`getConversation` en el puerto** resuelve la deuda del slice 03: un enlace directo ya no depende
+  de la primera página.
+- **Realtime:** `router.refresh()` sigue renovando la primera página; las páginas antiguas ya
+  cargadas y los mensajes desplazados se conservan en estado del cliente y se mezclan por tipo+id.
+- **Índices keyset** en la migración `20260105000000_pagination_indexes.sql`: conversaciones
+  `(tenant_id, last_activity_at DESC, id DESC)`, mensajes y llamadas `(conversation_id, fecha DESC, id DESC)`
+  y contactos `(tenant_id, created_at DESC, id DESC)`.
+- **Contactos** deja de redirigir a `/inbox`: página propia dentro del dashboard, con la misma
+  paginación y esqueleto.
+
+### Deudas y riesgos
+
+- **Confianza en la cabecera:** depende de que el matcher del proxy cubra toda ruta que use
+  `requireUser()`. Una ruta nueva fuera del matcher falla cerrado, pero conviene revisarlo al añadir
+  entradas. Alternativa más estricta: firmar la cabecera o volver a `getUser()` en esa ruta.
+- **`getClaims()` con JWT HS256** (Supabase local) cae internamente en `getUser()`: sigue siendo una
+  llamada de red. Con claves asimétricas/JWKS se verifica local y el ahorro sería mayor.
+- **Llamadas sin paginar:** una conversación con muchísimas llamadas aún carga todas. Pendiente si
+  aparece ese volumen.
+- **Conteos del panel:** con mensajes paginados el número se marca con `+` cuando hay más; no es un
+  `COUNT(*)` exacto.
+- **Medición en localhost:** las latencias absolutas son bajas; la comparación relativa y el conteo
+  de llamadas son la evidencia, no una promesa de ms en producción.
+- **Sin verificación visual en navegador:** no hay Chrome en el entorno; solo se verificó build,
+  tipos, lint, pruebas y la respuesta HTML de las rutas.
+
+## Slice 05 — Pruebas unitarias, integración y E2E de navegador
+
+Decisiones y deudas del handoff `odd/handoffs/S05-tests-e2e.md`.
+
+### Decisiones
+
+- **Validación de login en domain/application:**
+  - `emailSchema`: rechaza correos vacíos, sin `@`, sin dominio, con espacios o que excedan 254 caracteres (RFC 5321).
+  - `loginPasswordSchema`: en el login solo se exige contraseña no vacía (`min(1)`), protegiendo el acceso a cuentas preexistentes.
+  - `strongPasswordSchema`: reservado para alta y cambio de contraseña (mínimo 12 caracteres, mayúscula, minúscula, dígito y símbolo).
+  - El mensaje de error de autenticación se mantiene genérico (`"Email o contraseña incorrectos."`) para prevenir enumeración de usuarios.
+- **Suite de integración (`pnpm test:integration`):**
+  - Configuración aislada en `vitest.integration.config.ts` apuntando a `tests/integration/**/*.test.ts`.
+  - Verifica creación de sesión con Supabase local, rechazo con credenciales erróneas, revocación con logout, aislamiento multitenant en `whatsapp_numbers` y verificación estricta de headers/firmas para `/api/internal/*` y el webhook de Meta.
+- **E2E con Playwright (`pnpm test:e2e`):**
+  - Configurado en `playwright.config.ts` y `e2e/app.spec.ts` apuntando a Chromium (aprovechando cache existente en `~/.cache/ms-playwright`).
+  - Salida de artefactos y capturas configurada en `/tmp/playwright-artifacts` para mantener el árbol de git limpio.
+  - Prueba el flujo completo: Login -> Redirección a `/home` -> Navegación de todos los ítems del sidebar (`/inbox`, `/contacts`, `/business`, `/assistant`, `/account`, `/home`) -> Logout.
+  - Prueba de tarjeta "Conectar WhatsApp" y filtrado/búsqueda en la bandeja de entrada.
+- **Flujos no implementados (Fases F3/F5):**
+  - Marcados honestamente con `test.fixme` en la suite de Playwright: métricas del dashboard, gráficas, edición de perfil de usuario, configuración de negocio y configuración del asistente.
+
+### Deudas y hallazgos
+
+- **Botones y enlaces sin acción (muertos):**
+  - En `/business`: pantalla de estado vacío sin formulario funcional aún.
+  - En `/assistant`: pantalla de estado vacío sin controles de configuración.
+  - En `/account`: pantalla de estado vacío sin edición de perfil.
+  - En `/inbox`: las conversaciones y llamadas se visualizan, pero no existe caja de texto para enviar mensajes salientes directos (la atención es autónoma vía webhook).
+
+## Slice 06 — Bandeja rediseñada (tres paneles)
+
+Decisiones y deudas del handoff `odd/handoffs/S06-inbox-redesign.md`.
+
+### Decisiones
+
+- **Tres paneles:** lista de chats, conversación y detalle adaptable. En móvil se muestra un panel a la vez
+  (`list` → `chat` → `details`) con botones de vuelta y foco programático en el panel destino; en tablet
+  se muestran lista y conversación, y el detalle sustituye a la conversación; en escritorio conviven los tres.
+- **Estado del chat = solicitud más reciente del contacto.** El adaptador enriquece cada página de
+  conversaciones con una **segunda consulta acotada a los contactos de la página** (`requests` por
+  `contact_id`), sin N+1. El dominio expone `latestRequest` en `ConversationSummary` y una regla pura
+  `latestRequest()` por `(created_at, id)`. Los estados sin solicitud se muestran como «Sin estado».
+- **Indicador de estado accesible:** color, ícono propio y texto visible («Pendiente», «En proceso», etc.).
+  El color nunca es la única señal.
+- **Filtros de la lista locales:** chips por estado y búsqueda por nombre/teléfono filtran lo ya cargado,
+  sin navegación ni consulta al servidor. El valor se refleja en la URL (`q`, `status`) con
+  `history.replaceState` y cada enlace de conversación arrastra `q`, `status` y `filter`, por lo que el
+  estado se conserva al navegar y al compartir el enlace.
+- **Solo texto y llamadas:** se retiró el reproductor de audio y no se renderizan imágenes ni documentos.
+  Un audio se representa por su transcripción; si no la tiene, por su etiqueta. Las llamadas son tarjetas
+  compactas clicables dentro de la línea de tiempo.
+- **Reporte y sesión bajo demanda:** las llamadas ya cargadas bastan para el reporte (inicio, duración,
+  resultado y resumen). Los turnos se piden al pulsar «Ver sesión» con una server action que resuelve el
+  tenant desde la sesión y aplica la RLS; nunca se acepta el tenant del cliente. La transcripción usa
+  `call_turns` como burbujas (cliente a la izquierda, asistente a la derecha) y muestra estados vacío,
+  cargando y error.
+- **Paginación y Realtime intactos:** se conservan los cursores de S04, «Cargar más»/«Cargar anteriores»,
+  la mezcla por tipo+id y `router.refresh()` de S03. Se añadió `aria-live` para anunciar mensajes nuevos
+  sin mover el foco.
+- **Skeletons por panel:** lista, conversación, contacto y transcripción tienen su propio esqueleto; el
+  fallback de la página compone los tres paneles. Cada panel tiene estados vacío y error propios.
+- **Seed demo idempotente:** contactos en los cinco estados (incluido «Sin estado»), conversaciones,
+  mensajes, solicitudes, dos llamadas y cinco turnos con ids fijos y `ON CONFLICT DO NOTHING`.
+
+### Deudas y riesgos
+
+- **Búsqueda y chips filtran solo páginas cargadas.** Con muchas conversaciones, un contacto antiguo no
+  aparece hasta pulsar «Cargar más». Si el volumen lo exige, el siguiente paso es llevar `q`/`status` a la
+  consulta keyset del servidor.
+- **Solicitudes por página:** la segunda consulta trae todas las solicitudes históricas de los contactos
+  visibles. Está acotada por página (30 contactos), pero no por número de solicitudes; conviene un índice
+  parcial o `DISTINCT ON` si crece.
+- **Turnos sin paginar:** una llamada con transcripción muy larga se carga completa al abrir la sesión.
+- **Hora relativa:** se calcula en el cliente después de montar y se refresca cada minuto; el HTML inicial
+  muestra la hora absoluta para evitar desajustes de hidratación.
+- **Sin verificación visual en navegador:** no hay Chrome en el entorno. Se verificaron tipos, lint,
+  pruebas, build y la respuesta de las rutas, pero no se revisaron capturas ni interacción real.
+- **Riesgo heredado de S04:** la identidad verificada depende de que el matcher del proxy cubra toda ruta
+  que use `requireUser()`; una ruta nueva fuera del matcher falla cerrado (redirige a login).

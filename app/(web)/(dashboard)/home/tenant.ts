@@ -2,16 +2,13 @@ import "server-only";
 
 import { createClient } from "@/shared/supabase/server";
 
-/** Tenant del usuario autenticado: sale de tenant_members en el servidor, nunca del cliente. */
+/**
+ * Tenant del usuario autenticado: sale de current_tenant() en el servidor, nunca
+ * del cliente. No vuelve a llamar a auth.getUser(): el proxy ya verificó la sesión.
+ */
 export async function resolveTenantId(): Promise<string | null> {
   const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return null;
-  const { data } = await supabase
-    .from("tenant_members")
-    .select("tenant_id")
-    .eq("user_id", auth.user.id)
-    .limit(1)
-    .maybeSingle();
-  return data?.tenant_id ?? null;
+  const { data, error } = await supabase.rpc("current_tenant");
+  if (error || !data?.length) return null;
+  return data[0];
 }

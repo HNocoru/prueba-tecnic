@@ -2,8 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/shared/db";
 import { Contact } from "../domain/Contact";
 import type { ContactRepository } from "../application/ContactRepository";
+import type { CursorPageOptions, CursorPageResult, PageCursor } from "../application/pagination";
 
 type ContactRow = Tables<"contacts">;
+
+/** Filtro keyset de PostgREST para orden descendente por (created_at, id). */
+function afterFilter(cursor: PageCursor): string {
+  return `created_at.lt."${cursor.at}",and(created_at.eq."${cursor.at}",id.lt."${cursor.id}")`;
+}
 
 /**
  * Adaptador de Supabase para el repositorio de contactos.
@@ -13,17 +19,30 @@ type ContactRow = Tables<"contacts">;
 export class SupabaseContactRepository implements ContactRepository {
   constructor(private readonly supabase: SupabaseClient<Database>) {}
 
-  async listContacts(tenantId: string): Promise<Contact[]> {
-    const { data, error } = await this.supabase
-      .from("contacts")
-      .select("*")
-      .eq("tenant_id", tenantId);
+  async listContacts(
+    tenantId: string,
+    options: CursorPageOptions,
+  ): Promise<CursorPageResult<Contact>> {
+    let query = this.supabase.from("contacts").select("*").eq("tenant_id", tenantId);
+
+    if (options.after) {
+      query = query.or(afterFilter(options.after));
+    }
+
+    const { data, error } = await query
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(options.limit + 1);
 
     if (error) {
       throw new Error(`No se pudieron listar los contactos del tenant ${tenantId}`);
     }
 
-    return (data ?? []).map((row) => this.toDomain(row));
+    const rows = data ?? [];
+    return {
+      items: rows.slice(0, options.limit).map((row) => this.toDomain(row)),
+      hasMore: rows.length > options.limit,
+    };
   }
 
   private toDomain(row: ContactRow): Contact {

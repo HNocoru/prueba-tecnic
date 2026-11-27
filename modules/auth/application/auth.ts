@@ -1,19 +1,15 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { z } from "zod";
 
 import { createClient } from "@/shared/supabase/server";
 
+import { credentialsSchema, type Credentials } from "./credentials";
 import { getRequireUserRedirect } from "../domain/require-user-redirect";
+import { getVerifiedUserId } from "./verified-user";
 
-/** Credenciales aceptadas por el formulario de login. */
-export const credentialsSchema = z.object({
-  email: z.string().trim().email(),
-  password: z.string().min(1),
-});
-
-export type Credentials = z.infer<typeof credentialsSchema>;
+export { credentialsSchema };
+export type { Credentials };
 
 export type AuthResult = { error: string | null };
 
@@ -43,13 +39,12 @@ export async function signOut(): Promise<void> {
 }
 
 /**
- * Comprueba en el servidor (getUser valida el token con Supabase) si hay usuario
- * y redirige a /login si no. Defensa en profundidad además del proxy.
+ * Comprueba si el proxy ya verificó la sesión y redirige a /login si no.
+ * La verificación de red ocurre una sola vez por petición, en el proxy.
  */
 export async function requireUser(): Promise<void> {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  const target = getRequireUserRedirect(Boolean(data.user));
+  const userId = await getVerifiedUserId();
+  const target = getRequireUserRedirect(Boolean(userId));
 
   if (target) {
     redirect(target);

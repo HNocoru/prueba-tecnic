@@ -3,6 +3,7 @@ import { SidebarLink } from "@/components/atoms/SidebarLink";
 const NAV_ITEMS = [
   { href: "/home", label: "Inicio" },
   { href: "/inbox", label: "Bandeja" },
+  { href: "/contacts", label: "Contactos" },
   { href: "/business", label: "Negocio" },
   { href: "/assistant", label: "Asistente" },
   { href: "/account", label: "Cuenta" },

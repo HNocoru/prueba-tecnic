@@ -1,12 +1,23 @@
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { ErrorState } from "@/components/molecules/ErrorState";
-import type { TimelineEntry, TimelineFilter } from "@/modules/conversations";
+import { REQUEST_STATUSES, type RequestStatus, type TimelineFilter } from "@/modules/conversations";
 import { composeInbox } from "@/modules/conversations/composition";
 
-import type { ContactPanelData } from "../molecules/ContactPanel";
-import type { ConversationListItem } from "./ConversationList";
+import type { StatusFilter } from "./ConversationList";
 import { InboxRealtime } from "./InboxRealtime";
-import { InboxView, type InboxTimelineItem } from "./InboxView";
+import {
+  toCallItem,
+  toContactPanelData,
+  toConversationItem,
+  toMessageItem,
+  type ContactPanelData,
+  type ConversationListItem,
+  type InboxTimelineItem,
+  type LoadCallSession,
+  type LoadMoreConversations,
+  type LoadOlderMessages,
+} from "./inbox-types";
+import { InboxView } from "./InboxView";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -16,12 +27,16 @@ type InboxData =
   | {
       state: "ok";
       items: ConversationListItem[];
+      nextConversationCursor: string | null;
       selectedId?: string;
       selectedName?: string;
-      timeline: InboxTimelineItem[];
+      messages: InboxTimelineItem[];
+      calls: InboxTimelineItem[];
+      messagesNextCursor: string | null;
       contact: ContactPanelData | null;
       filter: TimelineFilter;
       query: string;
+      status: StatusFilter;
     };
 
 function firstParam(value: string | string[] | undefined): string {
@@ -35,26 +50,8 @@ function parseFilter(value: string): TimelineFilter {
   return value === "messages" || value === "calls" ? value : "all";
 }
 
-function toTimelineItem(entry: TimelineEntry): InboxTimelineItem {
-  return entry.type === "message"
-    ? {
-        type: "message",
-        id: entry.id,
-        direction: entry.direction,
-        messageKind: entry.kind,
-        body: entry.body,
-        mediaPath: entry.mediaPath,
-        transcript: entry.transcript,
-        at: entry.at,
-      }
-    : {
-        type: "call",
-        id: entry.id,
-        startedAt: entry.startedAt,
-        durationSeconds: entry.durationSeconds,
-        outcome: entry.outcome,
-        summary: entry.summary,
-      };
+function parseStatus(value: string): StatusFilter {
+  return REQUEST_STATUSES.includes(value as RequestStatus) ? (value as RequestStatus) : "all";
 }
 
 /** Solo obtiene datos; los errores de acceso se propagan al límite de la pantalla. */
@@ -67,66 +64,73 @@ async function loadInboxData(
   const conversationId = resolvedParams?.conversationId;
   const filter = parseFilter(firstParam(resolvedSearchParams.filter));
   const query = firstParam(resolvedSearchParams.q);
+  const status = parseStatus(firstParam(resolvedSearchParams.status));
 
-  const { listConversations, getTimeline } = await composeInbox();
-  const summaries = await listConversations.execute();
+  const { listConversations, getConversation, listMessages, listCalls, listContactRequests } =
+    await composeInbox();
 
-  if (summaries.length === 0) {
-    return { state: "empty" };
-  }
+  // Lista, últimos mensajes y llamadas son independientes: una sola ola en paralelo.
+  const [page, messagePage, calls] = await Promise.all([
+    listConversations.execute(),
+    conversationId ? listMessages.execute(conversationId) : Promise.resolve(null),
+    conversationId ? listCalls.execute(conversationId) : Promise.resolve([]),
+  ]);
 
-  const selected = conversationId
-    ? summaries.find((summary) => summary.conversation.id === conversationId)
+  let selected = conversationId
+    ? page.items.find((summary) => summary.conversation.id === conversationId)
     : undefined;
+
+  // Enlace directo fuera de la primera página: se resuelve por id, no por la lista.
+  if (conversationId && !selected) {
+    selected = (await getConversation.execute(conversationId)) ?? undefined;
+  }
 
   if (conversationId && !selected) {
     return { state: "not-found" };
   }
-
-  // Una sola consulta del timeline completo; el filtro y los conteos salen en memoria.
-  let allEntries: InboxTimelineItem[] = [];
-  if (selected) {
-    allEntries = (await getTimeline.execute(selected.conversation.id, "all")).map(toTimelineItem);
+  if (!selected && page.items.length === 0) {
+    return { state: "empty" };
   }
-  const timeline = allEntries.filter((entry) =>
-    filter === "messages"
-      ? entry.type === "message"
-      : filter === "calls"
-        ? entry.type === "call"
-        : true,
-  );
 
-  const items: ConversationListItem[] = summaries.map((summary) => ({
-    id: summary.conversation.id,
-    name: summary.contact.name?.trim() || summary.contact.waId,
-    phone: summary.contact.phoneE164 ?? summary.contact.waId,
-    preview: summary.lastMessage
-      ? (summary.lastMessage.body ?? summary.lastMessage.transcript ?? summary.lastMessage.kind)
-      : "Sin mensajes",
-    lastActivityAt: summary.conversation.lastActivityAt,
-  }));
-
+  const items = page.items.map(toConversationItem);
   if (!selected) {
-    // La lista ya está lista; el panel central pide al usuario que elija una conversación.
-    return { state: "ok", items, timeline: [], contact: null, filter, query };
+    return {
+      state: "ok",
+      items,
+      nextConversationCursor: page.nextCursor,
+      messages: [],
+      calls: [],
+      messagesNextCursor: null,
+      contact: null,
+      filter,
+      query,
+      status,
+    };
   }
 
   const selectedName = selected.contact.name?.trim() || selected.contact.waId;
+  const messages = (messagePage?.items ?? []).map(toMessageItem);
+  const requests = await listContactRequests.execute(selected.contact.id);
+
   return {
     state: "ok",
     items,
+    nextConversationCursor: page.nextCursor,
     selectedId: selected.conversation.id,
     selectedName,
-    timeline,
-    contact: {
-      name: selectedName,
-      phone: selected.contact.phoneE164 ?? selected.contact.waId,
-      firstSeenAt: selected.contact.createdAt,
-      messageCount: allEntries.filter((entry) => entry.type === "message").length,
-      callCount: allEntries.filter((entry) => entry.type === "call").length,
-    },
+    messages,
+    calls: calls.map(toCallItem),
+    messagesNextCursor: messagePage?.nextCursor ?? null,
+    contact: toContactPanelData(
+      selected,
+      requests,
+      messages.length,
+      Boolean(messagePage?.nextCursor),
+      calls.length,
+    ),
     filter,
     query,
+    status,
   };
 }
 
@@ -137,9 +141,15 @@ async function loadInboxData(
 export async function InboxScreen({
   params,
   searchParams,
+  loadMoreConversations,
+  loadOlderMessages,
+  loadCallSession,
 }: {
   params?: Promise<{ conversationId: string }>;
   searchParams?: Promise<SearchParams>;
+  loadMoreConversations: LoadMoreConversations;
+  loadOlderMessages: LoadOlderMessages;
+  loadCallSession: LoadCallSession;
 }) {
   let data: InboxData | undefined;
   try {
@@ -169,12 +179,19 @@ export async function InboxScreen({
       <InboxRealtime />
       <InboxView
         items={data.items}
+        nextConversationCursor={data.nextConversationCursor}
         selectedId={data.selectedId}
         selectedName={data.selectedName}
-        timeline={data.timeline}
+        messages={data.messages}
+        calls={data.calls}
+        messagesNextCursor={data.messagesNextCursor}
         contact={data.contact}
         filter={data.filter}
         query={data.query}
+        status={data.status}
+        loadMoreConversations={loadMoreConversations}
+        loadOlderMessages={loadOlderMessages}
+        loadCallSession={loadCallSession}
       />
     </>
   );

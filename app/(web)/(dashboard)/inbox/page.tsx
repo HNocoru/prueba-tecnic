@@ -3,6 +3,11 @@ import { Suspense } from "react";
 import { InboxSkeleton } from "@/components/molecules/InboxSkeleton";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { InboxScreen } from "@/components/organisms/InboxScreen";
+import {
+  loadCallSessionAction,
+  loadMoreConversationsAction,
+  loadOlderMessagesAction,
+} from "./actions";
 
 export default function InboxPage({
   searchParams,
@@ -13,7 +18,12 @@ export default function InboxPage({
     <>
       <PageHeader title="Bandeja" description="Conversaciones y llamadas de tus contactos." />
       <Suspense fallback={<InboxSkeleton />}>
-        <InboxScreen searchParams={searchParams} />
+        <InboxScreen
+          searchParams={searchParams}
+          loadMoreConversations={loadMoreConversationsAction}
+          loadOlderMessages={loadOlderMessagesAction}
+          loadCallSession={loadCallSessionAction}
+        />
       </Suspense>
     </>
   );

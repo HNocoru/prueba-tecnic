@@ -1,53 +1,67 @@
 import { describe, expect, it } from "vitest";
 import { Contact } from "../domain/Contact";
 import { ListContacts } from "./ListContacts";
-import type { ContactRepository } from "./ContactRepository";
+import { InvalidCursorError } from "./pagination";
+import { InMemoryContactRepository } from "../testing/InMemoryConversationRepository";
 
-/**
- * Repositorio falso en memoria para pruebas unitarias de ListContacts.
- * No toca red ni base de datos.
- */
-class InMemoryContactRepository implements ContactRepository {
-  private readonly contacts: Contact[] = [];
+const tenantId = "00000000-0000-4000-8000-000000000001";
 
-  async listContacts(tenantId: string): Promise<Contact[]> {
-    return this.contacts.filter((contact) => contact.tenantId === tenantId);
+function contact(index: number): Contact {
+  return new Contact({
+    id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    tenantId,
+    waId: `521550000${String(index).padStart(4, "0")}`,
+    phoneE164: null,
+    name: `Contacto ${index}`,
+    attributes: {},
+    createdAt: new Date(Date.UTC(2026, 10, 1, 0, index)).toISOString(),
+    redactedAt: null,
+  });
+}
+
+function repositoryWith(count: number): InMemoryContactRepository {
+  const repository = new InMemoryContactRepository();
+  for (let index = 0; index < count; index++) {
+    repository.add(contact(index));
   }
-
-  add(contact: Contact): void {
-    this.contacts.push(contact);
-  }
+  return repository;
 }
 
 describe("ListContacts", () => {
-  const tenantId = "00000000-0000-4000-8000-000000000001";
+  it("returns the first page ordered by creation descending", async () => {
+    const page = await new ListContacts(repositoryWith(35)).execute(tenantId, { limit: 10 });
 
-  it("returns the contacts for the tenant", async () => {
-    const contact = new Contact({
-      id: "00000000-0000-4000-8000-00000000000c",
-      tenantId,
-      waId: "5215500000001",
-      phoneE164: "+5215500000001",
-      name: "Ana",
-      attributes: {},
-      createdAt: "2026-11-24T00:00:00Z",
-      redactedAt: null,
-    });
-
-    const repository = new InMemoryContactRepository();
-    repository.add(contact);
-
-    const listContacts = new ListContacts(repository);
-
-    const result = await listContacts.execute(tenantId);
-
-    expect(result).toHaveLength(1);
-    expect(result[0]?.id).toBe("00000000-0000-4000-8000-00000000000c");
+    expect(page.items).toHaveLength(10);
+    expect(page.items[0]?.name).toBe("Contacto 34");
+    expect(page.items[9]?.name).toBe("Contacto 25");
+    expect(page.nextCursor).not.toBeNull();
   });
 
-  it("returns an empty list when the tenant has no contacts", async () => {
-    const listContacts = new ListContacts(new InMemoryContactRepository());
+  it("returns the next page from the cursor and ends without a cursor", async () => {
+    const list = new ListContacts(repositoryWith(15));
+    const first = await list.execute(tenantId, { limit: 10 });
+    const second = await list.execute(tenantId, { limit: 10, cursor: first.nextCursor });
 
-    await expect(listContacts.execute(tenantId)).resolves.toEqual([]);
+    expect(second.items.map((item) => item.name)).toEqual([
+      "Contacto 4",
+      "Contacto 3",
+      "Contacto 2",
+      "Contacto 1",
+      "Contacto 0",
+    ]);
+    expect(second.nextCursor).toBeNull();
+  });
+
+  it("rejects an invalid cursor", async () => {
+    await expect(
+      new ListContacts(repositoryWith(3)).execute(tenantId, { cursor: "not-base64" }),
+    ).rejects.toBeInstanceOf(InvalidCursorError);
+  });
+
+  it("returns an empty page when the tenant has no contacts", async () => {
+    const page = await new ListContacts(repositoryWith(0)).execute(tenantId);
+
+    expect(page.items).toEqual([]);
+    expect(page.nextCursor).toBeNull();
   });
 });
