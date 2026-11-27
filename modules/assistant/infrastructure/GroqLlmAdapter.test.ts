@@ -31,7 +31,9 @@ describe("GroqLlmAdapter", () => {
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer dummy-key");
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe("modelo-de-prueba");
-    expect(body.max_tokens).toBeLessThanOrEqual(400);
+    expect(body.max_tokens).toBe(500);
+    expect(body.reasoning_effort).toBe("none");
+    expect(body.reasoning_format).toBe("hidden");
     expect(body.messages).toEqual([
       { role: "system", content: "system" },
       { role: "user", content: "¿horario?" },
@@ -55,6 +57,38 @@ describe("GroqLlmAdapter", () => {
     expect((error as Error).message).not.toContain("SECRETO-GROQ");
   });
 
+  it("si el modelo rechaza los parámetros de razonamiento (400), reintenta sin ellos", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const adapter = new GroqLlmAdapter({
+      apiKey: "dummy-key",
+      model: "modelo-sin-razonamiento",
+      fetchImpl: async (_u: string, i: RequestInit) => {
+        bodies.push(JSON.parse(i.body as string));
+        return bodies.length === 1
+          ? new Response("reasoning_effort no soportado", { status: 400 })
+          : ok("respuesta sin razonamiento");
+      },
+    });
+    await expect(adapter.generate("system", [{ role: "user", body: "hola" }])).resolves.toBe(
+      "respuesta sin razonamiento",
+    );
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]).toHaveProperty("reasoning_effort", "none");
+    expect(bodies[1]).not.toHaveProperty("reasoning_effort");
+    expect(bodies[1]).not.toHaveProperty("reasoning_format");
+  });
+
+  it("un 400 que persiste sin los parámetros falla sin filtrar la key", async () => {
+    const adapter = new GroqLlmAdapter({
+      apiKey: "SECRETO-GROQ",
+      model: "m",
+      fetchImpl: async () => new Response("mal pedido SECRETO-GROQ", { status: 400 }),
+    });
+    const error = await adapter.generate("s", [{ role: "user", body: "hola" }]).catch((e) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).not.toContain("SECRETO-GROQ");
+  });
+
   it("falla claro si falta la key o el modelo", async () => {
     const noKey = new GroqLlmAdapter({ apiKey: undefined, model: "m" });
     await expect(noKey.generate("s", [])).rejects.toThrow("GROQ_API_KEY");
@@ -71,12 +105,36 @@ describe("GroqLlmAdapter", () => {
     await expect(adapter.generate("s", [])).resolves.toBe("Respuesta final");
   });
 
-  it("quita varios bloques think y trata respuesta vacía tras limpiar como error", async () => {
+  it("reintenta una vez con instrucción corta si queda vacío y devuelve el texto", async () => {
+    const bodies: { messages: { role: string; content: string }[] }[] = [];
+    const answers = ["<think>uno</think>   ", "Hola, ¿en qué te ayudo?"];
     const adapter = new GroqLlmAdapter({
       apiKey: "k",
       model: "m",
-      fetchImpl: async () => ok("<think>uno</think><think>dos</think>   "),
+      fetchImpl: async (_u: string, i: RequestInit) => {
+        bodies.push(JSON.parse(i.body as string));
+        return ok(answers.shift() ?? "");
+      },
+    });
+    await expect(adapter.generate("s", [{ role: "user", body: "hola" }])).resolves.toBe(
+      "Hola, ¿en qué te ayudo?",
+    );
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]?.messages[0]?.content).not.toBe("s");
+    expect(bodies[1]?.messages[0]?.content.length).toBeLessThan(200);
+  });
+
+  it("si el reintento también queda vacío falla con error de respuesta vacía", async () => {
+    let calls = 0;
+    const adapter = new GroqLlmAdapter({
+      apiKey: "k",
+      model: "m",
+      fetchImpl: async () => {
+        calls += 1;
+        return ok("<think>uno</think><think>dos</think>   ");
+      },
     });
     await expect(adapter.generate("s", [])).rejects.toThrow("vacía");
+    expect(calls).toBe(2);
   });
 });

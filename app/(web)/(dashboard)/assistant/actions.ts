@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { logger } from "@/shared/logger";
 import { composeAssistant } from "@/modules/business/composition";
 
 export type AssistantActionState = { ok: boolean; message: string | null };
@@ -29,7 +30,15 @@ export async function saveAssistantConfigAction(
     if (!result.ok) return { ok: false, message: result.error };
     revalidatePath("/assistant");
     return { ok: true, message: "Configuración del asistente guardada." };
-  } catch {
+  } catch (error) {
+    logger.error(
+      {
+        action: "saveAssistantConfigAction",
+        name: error instanceof Error ? error.name : "unknown",
+        message: error instanceof Error ? error.message : String(error),
+      },
+      "Falló la acción de guardado",
+    );
     return { ok: false, message: "No se pudo guardar la configuración. Inténtalo de nuevo." };
   }
 }

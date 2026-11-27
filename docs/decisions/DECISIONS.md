@@ -612,3 +612,34 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
 - **Medición:** el JS de cliente baja ≈ 55 kB en `/login` y `/signup` y ≈ 50 kB en `/home`
   (672 551 → 617 288 B, 673 323 → 618 034 B y 677 386 → 627 056 B). Detalle en `docs/ui-setup.md`.
 - **Pendiente de verificar:** el aspecto visual real y los E2E (los corre el orquestador).
+
+## 2026-11-27 · S24 · La IA responde por texto, conoce los productos y resume la llamada
+
+- **Causa 1 (respuesta vacía):** `GroqLlmAdapter` mandaba `max_tokens=300` sin desactivar el
+  razonamiento; Qwen gastaba los tokens en `<think>` y tras limpiarlo no quedaba texto. **Decisión:**
+  enviar `reasoning_effort:"none"` y `reasoning_format:"hidden"` (igual que el resumidor), subir
+  `max_tokens` a 500, conservar la limpieza de `<think>` y, si aun así queda vacío, un único
+  reintento con una instrucción de sistema más corta antes de fallar.
+- **Causa 2 (Graph 400):** el cuerpo de error de Meta se descartaba. **Decisión:**
+  `GraphWhatsAppSender` lee `error.code`, `error.message` y `error.error_data.details`, redacta el
+  token y los incluye en el error y en el log (solo estado y código). **Hipótesis, NO confirmada:**
+  los destinatarios mexicanos `521` + 10 dígitos devuelven 400 con código 131030; si llega ese
+  código con ese formato se reintenta UNA vez con `52` + 10 dígitos. Hasta ver el código real en
+  `webhook_events`/logs no se sabe si el 400 observado era ese; el reintento no afecta otros códigos.
+- **Resumen de llamada (`invalid_output`):** `parseSummaryOutput` invalidaba todo por un solo hecho
+  no escalar. **Decisión:** solo el resumen es obligatorio; los hechos se sanean (listas/objetos a
+  texto JSON corto, valores recortados a 200, claves vacías y excedentes sobre 20 descartadas).
+  Se extrae el JSON aunque venga rodeado de texto. El motivo fijo (`empty_output`, `no_json`,
+  `not_object`, `empty_summary`) se registra sin texto del cliente.
+- **Voz sin catálogo:** `GetCallContext` solo mandaba preguntas y horarios. **Decisión:** el contrato
+  con el worker no cambia (mismas claves); `business.faq` ahora lleva las secciones SOBRE EL NEGOCIO,
+  DIRECCIÓN, POLÍTICAS, PRODUCTOS Y SERVICIOS (con precio y moneda) y PREGUNTAS FRECUENTES, con tope de
+  6000 caracteres cortando por elementos completos. `GetBusinessContext` ahora excluye los productos
+  inactivos, lo que también corrige el prompt de texto (que ya incluía catálogo, dirección,
+  políticas y horarios, pero listaba inactivos).
+- **Guardado:** `SaveCatalogItems` y `SaveFaqs` ignoran en el servidor los renglones totalmente
+  vacíos (sin nombre/descripción/precio, o sin pregunta/respuesta) y siguen rechazando los
+  parcialmente llenos. Horarios no aplica: no tiene renglones en blanco. Los `catch` de las
+  acciones de `business` y `assistant` registran nombre y mensaje del error, nunca datos del cliente.
+- **Pendiente de verificar:** el código real de Meta y el efecto en WhatsApp real, y el aspecto en el
+  navegador (E2E los corre el orquestador).

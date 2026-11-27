@@ -129,4 +129,79 @@ describe("GetCallContext", () => {
       facts: { ciudad: "CDMX" },
     });
   });
+
+  const richContext = (overrides: object = {}) => ({
+    execute: async () => ({
+      ...{
+        name: "Estética Luna",
+        description: "Salón de belleza",
+        address: "Calle 5 #10, CDMX",
+        timezone: "America/Mexico_City",
+        policies: "Cancelar con 24 h",
+        contactPhone: "5512345678",
+        hours: [],
+        catalog: [
+          {
+            kind: "service",
+            name: "Corte",
+            description: "De cabello",
+            price: 150,
+            currency: "MXN",
+          },
+        ],
+        faqs: [{ question: "¿Aceptan tarjeta?", answer: "Sí" }],
+        assistant: {
+          name: "Asistente",
+          tone: "cercano",
+          voice: "roberto",
+          language: "es",
+          greeting: null,
+          escalationMessage: null,
+        },
+        ...overrides,
+      },
+    }),
+  });
+
+  it("manda a la voz productos con precio, dirección, políticas y preguntas, con las mismas claves", async () => {
+    const result = await new GetCallContext(repository(), richContext() as never).execute("call-1");
+    if (!result.ok) throw new Error("se esperaba contexto");
+    const faq = result.context.business.faq;
+    for (const part of [
+      "SOBRE EL NEGOCIO",
+      "Salón de belleza",
+      "DIRECCIÓN",
+      "Calle 5 #10, CDMX",
+      "POLÍTICAS",
+      "Cancelar con 24 h",
+      "PRODUCTOS Y SERVICIOS",
+      "- Corte: De cabello (150 MXN)",
+      "PREGUNTAS FRECUENTES",
+      "P: ¿Aceptan tarjeta?\nR: Sí",
+    ]) {
+      expect(faq).toContain(part);
+    }
+    expect(Object.keys(result.context.business).sort()).toEqual(
+      ["faq", "hours", "language", "name", "tone", "voice"].sort(),
+    );
+  });
+
+  it("respeta el tope de 6000 caracteres cortando por elementos completos", async () => {
+    const faqs = Array.from({ length: 200 }, (_, i) => ({
+      question: `Pregunta ${i}`,
+      answer: "respuesta ".repeat(10),
+    }));
+    const result = await new GetCallContext(repository(), richContext({ faqs }) as never).execute(
+      "call-1",
+    );
+    if (!result.ok) throw new Error("se esperaba contexto");
+    const faq = result.context.business.faq;
+    expect(faq.length).toBeLessThanOrEqual(6000);
+    expect(
+      faq.endsWith(
+        "respuesta respuesta respuesta respuesta respuesta respuesta respuesta respuesta respuesta respuesta ",
+      ),
+    ).toBe(true);
+    expect(faq).toContain("SOBRE EL NEGOCIO");
+  });
 });

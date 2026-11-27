@@ -6,7 +6,9 @@ const TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 1;
 // Tope bajo a propósito: Groq cuenta contra su límite por minuto la salida estimada
 // cuando no se manda max_tokens (lección de reference/ai-call-center).
-const MAX_TOKENS = 300;
+const MAX_TOKENS = 500;
+const SHORT_SYSTEM =
+  "Responde en español, breve y directo, solo con el texto final para el cliente. Si no sabes, ofrece pasarlo con una persona.";
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -25,15 +27,35 @@ export class GroqLlmAdapter implements LlmPort {
     if (!this.config.model) throw new Error("LLM_MODEL no configurado");
     const doFetch: FetchLike = this.config.fetchImpl ?? ((u, i) => fetch(u, i));
 
-    const body = JSON.stringify({
-      model: this.config.model,
-      max_tokens: MAX_TOKENS,
-      messages: [
-        { role: "system", content: system },
-        ...history.map((turn) => ({ role: turn.role, content: turn.body })),
-      ],
-    });
+    // Sin los parámetros de razonamiento Qwen gasta todos los tokens en <think> y no queda texto
+    // (S24). Un modelo que no los soporta responde 400: en ese caso se reintenta sin ellos.
+    const buildBody = (systemPrompt: string, withReasoning = true) =>
+      JSON.stringify({
+        model: this.config.model,
+        max_tokens: MAX_TOKENS,
+        ...(withReasoning ? { reasoning_effort: "none", reasoning_format: "hidden" } : {}),
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...history.map((turn) => ({ role: turn.role, content: turn.body })),
+        ],
+      });
 
+    let first: string;
+    try {
+      first = await this.request(doFetch, buildBody(system));
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("estado 400")) throw error;
+      first = await this.request(doFetch, buildBody(system, false));
+    }
+    if (first.trim()) return first;
+    // Un único reintento con una instrucción más corta antes de rendirse.
+    const second = await this.request(doFetch, buildBody(SHORT_SYSTEM));
+    if (second.trim()) return second;
+    throw new Error("Groq devolvió una respuesta vacía");
+  }
+
+  /** Una petición con reintento de red/429/5xx; devuelve el texto ya limpio (puede ser vacío). */
+  private async request(doFetch: FetchLike, body: string): Promise<string> {
     let lastStatus = 0;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
       try {
@@ -50,15 +72,12 @@ export class GroqLlmAdapter implements LlmPort {
           const data = (await response.json()) as {
             choices?: { message?: { content?: string | null } }[];
           };
-          const text = stripThinkBlocks(data.choices?.[0]?.message?.content ?? "");
-          if (!text.trim()) throw new Error("Groq devolvió una respuesta vacía");
-          return text;
+          return stripThinkBlocks(data.choices?.[0]?.message?.content ?? "");
         }
         lastStatus = response.status;
         // Solo 429 y 5xx se reintentan; el cuerpo nunca se propaga (podría traer la key).
         if (response.status !== 429 && response.status < 500) break;
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("vacía")) throw error;
+      } catch {
         lastStatus = 0;
       }
     }

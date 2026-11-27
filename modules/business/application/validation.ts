@@ -119,3 +119,21 @@ export const assistantConfigInputSchema = z.object({
 });
 
 export type AssistantConfigInput = z.infer<typeof assistantConfigInputSchema>;
+
+function isBlankText(value: unknown): boolean {
+  return value === undefined || value === null || (typeof value === "string" && !value.trim());
+}
+
+/** Renglón del catálogo sin nombre, descripción ni precio: el servidor lo ignora. */
+export function isBlankCatalogRow(row: unknown): boolean {
+  if (!row || typeof row !== "object") return false;
+  const { name, description, price } = row as Record<string, unknown>;
+  return isBlankText(name) && isBlankText(description) && isBlankText(price);
+}
+
+/** Pregunta frecuente sin pregunta ni respuesta: el servidor la ignora. */
+export function isBlankFaqRow(row: unknown): boolean {
+  if (!row || typeof row !== "object") return false;
+  const { question, answer } = row as Record<string, unknown>;
+  return isBlankText(question) && isBlankText(answer);
+}

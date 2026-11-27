@@ -1,7 +1,8 @@
 import { SUMMARY_COOLDOWN_MS } from "../domain/ContactMemory";
 import { SUMMARY_SYSTEM_PROMPT } from "../domain/SummaryPrompt";
 import { buildTranscript, mergeMemory } from "./SummarizeCall";
-import { parseSummaryOutput } from "./parseSummaryOutput";
+import { logger } from "@/shared/logger";
+import { parseSummaryOutputDetailed } from "./parseSummaryOutput";
 import type {
   CallTurnForSummary,
   ConversationSummaryStore,
@@ -43,8 +44,12 @@ export class SummarizeConversation {
     } catch {
       return { status: "failed", reason: "llm_failed" };
     }
-    const parsed = parseSummaryOutput(raw);
-    if (!parsed) return { status: "failed", reason: "invalid_output" };
+    const result = parseSummaryOutputDetailed(raw);
+    if (!result.ok) {
+      logger.warn({ reason: result.reason }, "Resumen del LLM inválido");
+      return { status: "failed", reason: "invalid_output" };
+    }
+    const parsed = result.value;
 
     const previous = await this.store.readContactMemory(tenantId, contactId);
     const written = await this.store.saveContactMemoryIfUnchanged(

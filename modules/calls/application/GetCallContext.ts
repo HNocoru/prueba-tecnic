@@ -1,6 +1,7 @@
 import { GOODBYE_AT_SECONDS, MAX_CALL_SECONDS } from "../domain/Call";
 import type { CallContextResult, CallMemoryReader, CallRepository } from "./ports";
 import type { GetBusinessContext } from "@/modules/business";
+import { buildBusinessKnowledge } from "./buildBusinessKnowledge";
 
 export class GetCallContext {
   constructor(
@@ -22,7 +23,7 @@ export class GetCallContext {
         : Promise.resolve({ summary: "", facts: {} }),
     ]);
 
-    const faqText = businessCtx.faqs.map((f) => `P: ${f.question}\nR: ${f.answer}`).join("\n\n");
+    const faqText = buildBusinessKnowledge(businessCtx);
     const weekdayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
     const hoursText = businessCtx.hours
       .map((h) => `${weekdayNames[h.weekday] ?? h.weekday}: ${h.opens}-${h.closes}`)
