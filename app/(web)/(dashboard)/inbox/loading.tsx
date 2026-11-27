@@ -1,11 +1,6 @@
-import { InboxSkeleton } from "@/components/molecules/InboxSkeleton";
-import { PageHeader } from "@/components/molecules/PageHeader";
+import { ConversationViewSkeleton } from "@/components/molecules/InboxSkeleton";
 
+/** El layout pinta su propio esqueleto completo; aquí solo el hilo y el panel. */
 export default function Loading() {
-  return (
-    <>
-      <PageHeader title="Bandeja" description="Conversaciones y llamadas de tus contactos." />
-      <InboxSkeleton />
-    </>
-  );
+  return <ConversationViewSkeleton />;
 }

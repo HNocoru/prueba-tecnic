@@ -1,30 +1,17 @@
-import { Suspense } from "react";
+import { InboxView } from "@/components/organisms/InboxView";
 
-import { InboxSkeleton } from "@/components/molecules/InboxSkeleton";
-import { PageHeader } from "@/components/molecules/PageHeader";
-import { InboxScreen } from "@/components/organisms/InboxScreen";
-import {
-  loadCallSessionAction,
-  loadMoreConversationsAction,
-  loadOlderMessagesAction,
-} from "./actions";
+import { loadCallSessionAction, loadOlderMessagesAction } from "./actions";
 
-export default function InboxPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+/** Sin conversación elegida: no necesita datos, la lista ya la pinta el layout. */
+export default function InboxPage() {
   return (
-    <>
-      <PageHeader title="Bandeja" description="Conversaciones y llamadas de tus contactos." />
-      <Suspense fallback={<InboxSkeleton />}>
-        <InboxScreen
-          searchParams={searchParams}
-          loadMoreConversations={loadMoreConversationsAction}
-          loadOlderMessages={loadOlderMessagesAction}
-          loadCallSession={loadCallSessionAction}
-        />
-      </Suspense>
-    </>
+    <InboxView
+      messages={[]}
+      calls={[]}
+      messagesNextCursor={null}
+      contact={null}
+      loadOlderMessages={loadOlderMessagesAction}
+      loadCallSession={loadCallSessionAction}
+    />
   );
 }

@@ -3,11 +3,13 @@
 import { useActionState, useState } from "react";
 
 import { P5Icon } from "@/components/atoms/P5Icon";
+import { catalogIssues, dropBlankCatalogRows } from "@/components/atoms/form-draft";
 import { p5ActionRowClass, p5FieldClass } from "@/components/atoms/p5-styles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { P5FormStatus } from "@/components/molecules/P5FormStatus";
+import { FieldError, FormFeedback, UnsavedChanges } from "@/components/molecules/FormFeedback";
+import { useDraftForm } from "@/components/molecules/use-draft-form";
 
 import { saveCatalogItemsAction, type BusinessActionState } from "./actions";
 
@@ -61,7 +63,8 @@ export function CatalogForm({ initialValues }: Props) {
     setRows((prev) => prev.filter((_, i) => i !== index));
   }
 
-  const payload = rows.map((r) => ({
+  // Los renglones totalmente vacíos no se envían: solo estorban al guardar.
+  const payload = dropBlankCatalogRows(rows).map((r) => ({
     kind: r.kind,
     name: r.name.trim(),
     description: r.description.trim() || null,
@@ -70,8 +73,10 @@ export function CatalogForm({ initialValues }: Props) {
     active: r.active,
   }));
 
+  const draft = useDraftForm({ payload, state, issues: catalogIssues(rows) });
+
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} onSubmit={draft.handleSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="items" value={JSON.stringify(payload)} />
       <div className="flex flex-col gap-3">
         {rows.length === 0 ? (
@@ -79,85 +84,92 @@ export function CatalogForm({ initialValues }: Props) {
             Todavía no agregas nada. Empieza con lo que más te preguntan.
           </p>
         ) : null}
-        {rows.map((row, index) => (
-          <div key={index} className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor={`kind-${index}`}>Tipo</Label>
-                <select
-                  id={`kind-${index}`}
-                  value={row.kind}
-                  onChange={(e) =>
-                    updateRow(index, { kind: e.target.value as "product" | "service" })
-                  }
-                  className={p5FieldClass}
+        {rows.map((row, index) => {
+          const nameError = draft.issueFor(index, "name");
+          return (
+            <div key={index} className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor={`kind-${index}`}>Tipo</Label>
+                  <select
+                    id={`kind-${index}`}
+                    value={row.kind}
+                    onChange={(e) =>
+                      updateRow(index, { kind: e.target.value as "product" | "service" })
+                    }
+                    className={p5FieldClass}
+                  >
+                    <option value="product">Producto</option>
+                    <option value="service">Servicio</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1 lg:col-span-2">
+                  <Label htmlFor={`name-${index}`}>Nombre</Label>
+                  <Input
+                    id={`name-${index}`}
+                    value={row.name}
+                    onChange={(e) => updateRow(index, { name: e.target.value })}
+                    aria-invalid={nameError ? true : undefined}
+                    aria-describedby={nameError ? `name-error-${index}` : undefined}
+                    className={nameError ? "border-status-cancelled-fg" : undefined}
+                  />
+                  <FieldError id={`name-error-${index}`} message={nameError} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor={`currency-${index}`}>Moneda</Label>
+                  <Input
+                    id={`currency-${index}`}
+                    value={row.currency}
+                    onChange={(e) => updateRow(index, { currency: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor={`price-${index}`}>Precio</Label>
+                  <Input
+                    id={`price-${index}`}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.price}
+                    onChange={(e) => updateRow(index, { price: e.target.value })}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor={`desc-${index}`}>Descripción</Label>
+                  <Input
+                    id={`desc-${index}`}
+                    value={row.description}
+                    onChange={(e) => updateRow(index, { description: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex min-h-11 items-center gap-2 text-sm text-text">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 accent-accent"
+                    checked={row.active}
+                    onChange={(e) => updateRow(index, { active: e.target.checked })}
+                  />
+                  Disponible
+                </label>
+                <Button
+                  type="button"
+                  onClick={() => removeRow(index)}
+                  variant="secondary"
+                  size="sm"
+                  className="px-3"
+                  aria-label={`Borrar elemento ${index + 1}`}
                 >
-                  <option value="product">Producto</option>
-                  <option value="service">Servicio</option>
-                </select>
-              </div>
-              <div className="flex flex-col gap-1 lg:col-span-2">
-                <Label htmlFor={`name-${index}`}>Nombre</Label>
-                <Input
-                  id={`name-${index}`}
-                  value={row.name}
-                  onChange={(e) => updateRow(index, { name: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor={`currency-${index}`}>Moneda</Label>
-                <Input
-                  id={`currency-${index}`}
-                  value={row.currency}
-                  onChange={(e) => updateRow(index, { currency: e.target.value })}
-                />
+                  <P5Icon name="trash" className="h-4 w-4" />
+                  Borrar
+                </Button>
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor={`price-${index}`}>Precio</Label>
-                <Input
-                  id={`price-${index}`}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={row.price}
-                  onChange={(e) => updateRow(index, { price: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor={`desc-${index}`}>Descripción</Label>
-                <Input
-                  id={`desc-${index}`}
-                  value={row.description}
-                  onChange={(e) => updateRow(index, { description: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <label className="flex min-h-11 items-center gap-2 text-sm text-text">
-                <input
-                  type="checkbox"
-                  className="h-5 w-5 accent-accent"
-                  checked={row.active}
-                  onChange={(e) => updateRow(index, { active: e.target.checked })}
-                />
-                Disponible
-              </label>
-              <Button
-                type="button"
-                onClick={() => removeRow(index)}
-                variant="secondary"
-                size="sm"
-                className="px-3"
-                aria-label={`Borrar elemento ${index + 1}`}
-              >
-                <P5Icon name="trash" className="h-4 w-4" />
-                Borrar
-              </Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className={p5ActionRowClass}>
         <Button type="button" onClick={addRow} variant="secondary" size="sm">
@@ -167,8 +179,9 @@ export function CatalogForm({ initialValues }: Props) {
         <Button type="submit" disabled={pending}>
           {pending ? "Guardando..." : "Guardar catálogo"}
         </Button>
+        <UnsavedChanges dirty={draft.dirty} />
       </div>
-      <P5FormStatus message={state.message} ok={state.ok} />
+      <FormFeedback feedback={draft.feedback} innerRef={draft.feedbackRef} />
     </form>
   );
 }

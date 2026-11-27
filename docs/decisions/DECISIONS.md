@@ -643,3 +643,10 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   acciones de `business` y `assistant` registran nombre y mensaje del error, nunca datos del cliente.
 - **Pendiente de verificar:** el código real de Meta y el efecto en WhatsApp real, y el aspecto en el
   navegador (E2E los corre el orquestador).
+
+## S25 · Bandeja sin recargar la lista y formularios que no pierden datos
+
+- **Causa:** `/inbox/[conversationId]` cargaba lista, hilo y panel en cada navegación y su `loading.tsx` pintaba el esqueleto de las tres columnas.
+- **Decisión:** la lista vive en `inbox/layout.tsx` (no se re-renderiza al navegar); `[conversationId]/page.tsx` carga solo hilo y panel, con su propio `loading.tsx` (`ConversationViewSkeleton`). Verificado en navegador: el nodo de la lista conserva su identidad al cambiar de contacto. Caso e2e: "la lista no se desmonta".
+- **Formularios de negocio:** no envían renglones vacíos, muestran el resultado con `aria-live` junto al botón, avisan de cambios sin guardar (`beforeunload`) y conservan lo escrito tras guardar. Lógica pura en `components/atoms/form-draft.ts` con pruebas.
+- **No verificado:** la tabla antes/después de bytes de HTML/JS (el agente se quedó sin cuota) y el e2e completo en esta rama.
