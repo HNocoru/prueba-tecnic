@@ -5,7 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ReplyToInboundMessage } from "@/modules/assistant/application/ReplyToInboundMessage";
 import type { LlmPort, WhatsAppSenderPort } from "@/modules/assistant/application/ports";
 import { SupabaseAssistantStore } from "@/modules/assistant/infrastructure/SupabaseAssistantStore";
-import { SupabaseBusinessContextReader } from "@/modules/assistant/infrastructure/SupabaseBusinessContextReader";
+import { BusinessContextReaderAdapter } from "@/modules/assistant/infrastructure/BusinessContextReaderAdapter";
+import { composeBusinessContextForService } from "@/modules/business";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 // Llaves demo públicas de la CLI de Supabase local (no son secretos reales).
@@ -141,7 +142,7 @@ const makeUseCase = () => {
   const store = new SupabaseAssistantStore(admin);
   return new ReplyToInboundMessage({
     inbound: store,
-    business: new SupabaseBusinessContextReader(admin),
+    business: new BusinessContextReaderAdapter(composeBusinessContextForService()),
     history: store,
     llm,
     sender,

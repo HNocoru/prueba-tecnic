@@ -5,7 +5,8 @@ import { ReplyToInboundMessage } from "./application/ReplyToInboundMessage";
 import { GroqLlmAdapter } from "./infrastructure/GroqLlmAdapter";
 import { GraphWhatsAppSender } from "./infrastructure/GraphWhatsAppSender";
 import { SupabaseAssistantStore } from "./infrastructure/SupabaseAssistantStore";
-import { SupabaseBusinessContextReader } from "./infrastructure/SupabaseBusinessContextReader";
+import { BusinessContextReaderAdapter } from "./infrastructure/BusinessContextReaderAdapter";
+import { composeBusinessContextForService } from "@/modules/business";
 
 /** Composition root del asistente de texto (service_role, sin sesión de usuario). */
 export function composeReplyToInboundMessage(): ReplyToInboundMessage {
@@ -14,8 +15,8 @@ export function composeReplyToInboundMessage(): ReplyToInboundMessage {
 
   return new ReplyToInboundMessage({
     inbound: store,
-    // Una línea a cambiar cuando modules/business exponga getBusinessContext(tenantId).
-    business: new SupabaseBusinessContextReader(db),
+    // Contexto real del negocio (service_role, tenant explícito) desde modules/business.
+    business: new BusinessContextReaderAdapter(composeBusinessContextForService()),
     history: store,
     llm: new GroqLlmAdapter({
       apiKey: serverEnv.GROQ_API_KEY,

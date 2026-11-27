@@ -3,3 +3,4 @@ export { GetBusinessContext } from "./application/GetBusinessContext";
 export type { BusinessRepository } from "./application/ports";
 export { SupabaseBusinessRepository } from "./infrastructure/SupabaseBusinessRepository";
 export { GetBusinessContext as createGetBusinessContext } from "./application/GetBusinessContext";
+export { composeBusinessContextForService } from "./composition.service";
