@@ -2,6 +2,10 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
 import { loginAction, type LoginState } from "./actions";
 
 const INITIAL_STATE: LoginState = { error: null, fieldErrors: {} };
@@ -35,7 +39,7 @@ export function LoginForm() {
   }
 
   const inputClassName =
-    "min-h-12 w-full rounded-2xl bg-surface px-4 text-sm text-text outline-none placeholder:text-text-2 focus-visible:ring-2 focus-visible:ring-accent aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-destructive";
+    "min-h-12 rounded-2xl border-0 bg-surface px-4 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-destructive";
 
   return (
     <form
@@ -45,10 +49,10 @@ export function LoginForm() {
       className="flex w-full flex-col gap-5"
     >
       <div className="flex flex-col gap-2">
-        <label htmlFor="email" className="text-sm font-semibold text-text">
+        <Label htmlFor="email" className="font-semibold">
           Correo electrónico
-        </label>
-        <input
+        </Label>
+        <Input
           ref={emailRef}
           id="email"
           name="email"
@@ -66,11 +70,11 @@ export function LoginForm() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label htmlFor="password" className="text-sm font-semibold text-text">
+        <Label htmlFor="password" className="font-semibold">
           Contraseña
-        </label>
+        </Label>
         <div className="relative">
-          <input
+          <Input
             ref={passwordRef}
             id="password"
             name="password"
@@ -81,16 +85,17 @@ export function LoginForm() {
             aria-invalid={Boolean(passwordError)}
             className={`${inputClassName} pr-28`}
           />
-          <button
+          <Button
             type="button"
+            variant="ghost"
             aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             aria-pressed={showPassword}
             aria-controls="password"
             onClick={() => setShowPassword((visible) => !visible)}
-            className="absolute right-1.5 top-1/2 inline-flex min-h-11 -translate-y-1/2 items-center rounded-full px-3 text-sm font-semibold text-accent hover:bg-soft"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3"
           >
             {showPassword ? "Ocultar" : "Mostrar"}
-          </button>
+          </Button>
         </div>
         <p id="password-error" className="text-sm font-medium text-destructive empty:hidden">
           {passwordError ?? ""}
@@ -106,13 +111,9 @@ export function LoginForm() {
         {status}
       </p>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="min-h-12 w-full rounded-full bg-accent px-6 text-base font-semibold text-canvas transition-colors hover:bg-accent-hover disabled:opacity-60"
-      >
+      <Button type="submit" size="lg" disabled={pending}>
         {pending ? "Entrando…" : "Entrar"}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -3,13 +3,10 @@
 import { useActionState, useState } from "react";
 
 import { P5Icon } from "@/components/atoms/P5Icon";
-import {
-  p5ActionRowClass,
-  p5FieldClass,
-  p5LabelClass,
-  p5PrimaryButtonClass,
-  p5SecondaryButtonClass,
-} from "@/components/atoms/p5-styles";
+import { p5ActionRowClass, p5FieldClass } from "@/components/atoms/p5-styles";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { P5FormStatus } from "@/components/molecules/P5FormStatus";
 
 import { saveCatalogItemsAction, type BusinessActionState } from "./actions";
@@ -86,9 +83,7 @@ export function CatalogForm({ initialValues }: Props) {
           <div key={index} className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="flex flex-col gap-1">
-                <label className={p5LabelClass} htmlFor={`kind-${index}`}>
-                  Tipo
-                </label>
+                <Label htmlFor={`kind-${index}`}>Tipo</Label>
                 <select
                   id={`kind-${index}`}
                   value={row.kind}
@@ -102,52 +97,40 @@ export function CatalogForm({ initialValues }: Props) {
                 </select>
               </div>
               <div className="flex flex-col gap-1 lg:col-span-2">
-                <label className={p5LabelClass} htmlFor={`name-${index}`}>
-                  Nombre
-                </label>
-                <input
+                <Label htmlFor={`name-${index}`}>Nombre</Label>
+                <Input
                   id={`name-${index}`}
                   value={row.name}
                   onChange={(e) => updateRow(index, { name: e.target.value })}
-                  className={p5FieldClass}
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className={p5LabelClass} htmlFor={`currency-${index}`}>
-                  Moneda
-                </label>
-                <input
+                <Label htmlFor={`currency-${index}`}>Moneda</Label>
+                <Input
                   id={`currency-${index}`}
                   value={row.currency}
                   onChange={(e) => updateRow(index, { currency: e.target.value })}
-                  className={p5FieldClass}
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1">
-                <label className={p5LabelClass} htmlFor={`price-${index}`}>
-                  Precio
-                </label>
-                <input
+                <Label htmlFor={`price-${index}`}>Precio</Label>
+                <Input
                   id={`price-${index}`}
                   type="number"
                   min="0"
                   step="0.01"
                   value={row.price}
                   onChange={(e) => updateRow(index, { price: e.target.value })}
-                  className={p5FieldClass}
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className={p5LabelClass} htmlFor={`desc-${index}`}>
-                  Descripción
-                </label>
-                <input
+                <Label htmlFor={`desc-${index}`}>Descripción</Label>
+                <Input
                   id={`desc-${index}`}
                   value={row.description}
                   onChange={(e) => updateRow(index, { description: e.target.value })}
-                  className={p5FieldClass}
                 />
               </div>
             </div>
@@ -161,27 +144,29 @@ export function CatalogForm({ initialValues }: Props) {
                 />
                 Disponible
               </label>
-              <button
+              <Button
                 type="button"
                 onClick={() => removeRow(index)}
-                className={`${p5SecondaryButtonClass} px-3`}
+                variant="secondary"
+                size="sm"
+                className="px-3"
                 aria-label={`Borrar elemento ${index + 1}`}
               >
                 <P5Icon name="trash" className="h-4 w-4" />
                 Borrar
-              </button>
+              </Button>
             </div>
           </div>
         ))}
       </div>
       <div className={p5ActionRowClass}>
-        <button type="button" onClick={addRow} className={p5SecondaryButtonClass}>
+        <Button type="button" onClick={addRow} variant="secondary" size="sm">
           <P5Icon name="plus" className="h-4 w-4" />
           Agregar producto o servicio
-        </button>
-        <button type="submit" disabled={pending} className={p5PrimaryButtonClass}>
+        </Button>
+        <Button type="submit" disabled={pending}>
           {pending ? "Guardando..." : "Guardar catálogo"}
-        </button>
+        </Button>
       </div>
       <P5FormStatus message={state.message} ok={state.ok} />
     </form>

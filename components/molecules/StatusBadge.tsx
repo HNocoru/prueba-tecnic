@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import type { RequestStatus } from "@/modules/conversations";
 
 export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
@@ -72,11 +73,12 @@ export function StatusIcon({ status }: { status: RequestStatus }): ReactNode {
 /** Estado del chat con color, ícono y texto; nunca depende solo del color. */
 export function StatusBadge({ status }: { status: RequestStatus }) {
   return (
-    <span
-      className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${STATUS_STYLE[status]}`}
+    <Badge
+      variant="plain"
+      className={`max-w-full gap-1 border px-2 py-0.5 text-[11px] font-medium ${STATUS_STYLE[status]}`}
     >
       <StatusIcon status={status} />
       <span className="truncate">{REQUEST_STATUS_LABEL[status]}</span>
-    </span>
+    </Badge>
   );
 }

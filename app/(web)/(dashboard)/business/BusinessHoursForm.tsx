@@ -3,13 +3,10 @@
 import { useActionState, useState } from "react";
 
 import { P5Icon } from "@/components/atoms/P5Icon";
-import {
-  p5ActionRowClass,
-  p5FieldClass,
-  p5LabelClass,
-  p5PrimaryButtonClass,
-  p5SecondaryButtonClass,
-} from "@/components/atoms/p5-styles";
+import { p5ActionRowClass, p5FieldClass } from "@/components/atoms/p5-styles";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { P5FormStatus } from "@/components/molecules/P5FormStatus";
 
 import { saveBusinessHoursAction, type BusinessActionState } from "./actions";
@@ -50,9 +47,7 @@ export function BusinessHoursForm({ initialValues }: Props) {
             className="grid grid-cols-1 gap-3 rounded-2xl bg-surface p-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end"
           >
             <div className="flex flex-col gap-1">
-              <label className={p5LabelClass} htmlFor={`weekday-${index}`}>
-                Día
-              </label>
+              <Label htmlFor={`weekday-${index}`}>Día</Label>
               <select
                 id={`weekday-${index}`}
                 className={p5FieldClass}
@@ -67,49 +62,45 @@ export function BusinessHoursForm({ initialValues }: Props) {
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className={p5LabelClass} htmlFor={`opens-${index}`}>
-                Abre
-              </label>
-              <input
+              <Label htmlFor={`opens-${index}`}>Abre</Label>
+              <Input
                 id={`opens-${index}`}
                 type="time"
-                className={p5FieldClass}
                 value={row.opens}
                 onChange={(e) => updateRow(index, { opens: e.target.value })}
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className={p5LabelClass} htmlFor={`closes-${index}`}>
-                Cierra
-              </label>
-              <input
+              <Label htmlFor={`closes-${index}`}>Cierra</Label>
+              <Input
                 id={`closes-${index}`}
                 type="time"
-                className={p5FieldClass}
                 value={row.closes}
                 onChange={(e) => updateRow(index, { closes: e.target.value })}
               />
             </div>
-            <button
+            <Button
               type="button"
               onClick={() => removeRow(index)}
-              className={`relative ${p5SecondaryButtonClass} px-3 sm:w-11 sm:justify-center`}
+              variant="secondary"
+              size="sm"
+              className="relative px-3 sm:w-11 sm:justify-center"
               aria-label={`Quitar horario ${index + 1}`}
             >
               <P5Icon name="trash" className="h-4 w-4 sm:hidden" />
               <span className="sm:sr-only">Quitar</span>
-            </button>
+            </Button>
           </div>
         ))}
       </div>
       <div className={p5ActionRowClass}>
-        <button type="button" onClick={addRow} className={p5SecondaryButtonClass}>
+        <Button type="button" onClick={addRow} variant="secondary" size="sm">
           <P5Icon name="plus" className="h-4 w-4" />
           Agregar horario
-        </button>
-        <button type="submit" disabled={pending} className={p5PrimaryButtonClass}>
+        </Button>
+        <Button type="submit" disabled={pending}>
           {pending ? "Guardando..." : "Guardar horarios"}
-        </button>
+        </Button>
       </div>
       <P5FormStatus message={state.message} ok={state.ok} />
     </form>

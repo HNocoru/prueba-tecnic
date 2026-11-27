@@ -2,12 +2,10 @@
 
 import { useActionState } from "react";
 
-import {
-  p5FieldClass,
-  p5LabelClass,
-  p5PrimaryButtonClass,
-  p5TextareaClass,
-} from "@/components/atoms/p5-styles";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { P5FormStatus } from "@/components/molecules/P5FormStatus";
 
 import { saveBusinessProfileAction, type BusinessActionState } from "./actions";
@@ -31,76 +29,41 @@ export function BusinessProfileForm({ initialValues }: Props) {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <label htmlFor="legalName" className={p5LabelClass}>
-          Nombre del negocio
-        </label>
-        <input
-          id="legalName"
-          name="legalName"
-          defaultValue={initialValues.legalName}
-          className={p5FieldClass}
-        />
+        <Label htmlFor="legalName">Nombre del negocio</Label>
+        <Input id="legalName" name="legalName" defaultValue={initialValues.legalName} />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="description" className={p5LabelClass}>
-          Descripción
-        </label>
-        <textarea
+        <Label htmlFor="description">Descripción</Label>
+        <Textarea
           id="description"
           name="description"
           defaultValue={initialValues.description}
           rows={3}
-          className={p5TextareaClass}
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="address" className={p5LabelClass}>
-          Dirección
-        </label>
-        <input
-          id="address"
-          name="address"
-          defaultValue={initialValues.address}
-          className={p5FieldClass}
-        />
+        <Label htmlFor="address">Dirección</Label>
+        <Input id="address" name="address" defaultValue={initialValues.address} />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="timezone" className={p5LabelClass}>
-          Zona horaria (IANA)
-        </label>
-        <input
+        <Label htmlFor="timezone">Zona horaria (IANA)</Label>
+        <Input
           id="timezone"
           name="timezone"
           defaultValue={initialValues.timezone || "America/Mexico_City"}
-          className={p5FieldClass}
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="policies" className={p5LabelClass}>
-          Políticas
-        </label>
-        <textarea
-          id="policies"
-          name="policies"
-          defaultValue={initialValues.policies}
-          rows={3}
-          className={p5TextareaClass}
-        />
+        <Label htmlFor="policies">Políticas</Label>
+        <Textarea id="policies" name="policies" defaultValue={initialValues.policies} rows={3} />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="contactPhone" className={p5LabelClass}>
-          Teléfono de contacto
-        </label>
-        <input
-          id="contactPhone"
-          name="contactPhone"
-          defaultValue={initialValues.contactPhone}
-          className={p5FieldClass}
-        />
+        <Label htmlFor="contactPhone">Teléfono de contacto</Label>
+        <Input id="contactPhone" name="contactPhone" defaultValue={initialValues.contactPhone} />
       </div>
-      <button type="submit" disabled={pending} className={`${p5PrimaryButtonClass} w-fit`}>
+      <Button type="submit" disabled={pending} className="w-fit">
         {pending ? "Guardando..." : "Guardar perfil"}
-      </button>
+      </Button>
       <P5FormStatus message={state.message} ok={state.ok} />
     </form>
   );

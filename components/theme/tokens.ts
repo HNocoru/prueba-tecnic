@@ -1,6 +1,6 @@
 /**
  * Única fuente de verdad de la dirección A · Mostrador.
- * `app/globals.css` y el tema de MUI leen estos mismos valores; la prueba
+ * `app/globals.css` lee estos mismos valores; la prueba
  * `e2e/tokens-contract.spec.ts` comprueba que no divergen.
  */
 export const cssColorVariables = {

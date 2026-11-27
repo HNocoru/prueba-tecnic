@@ -45,7 +45,7 @@ test.describe("shell del dashboard", () => {
     });
   }
 
-  test("las utilidades de Tailwind ganan a la capa mui", async ({ page }) => {
+  test("las utilidades de Tailwind ganan a la capa components", async ({ page }) => {
     await page.goto("/home");
 
     const backgroundColor = await page.evaluate(() => {
@@ -54,7 +54,8 @@ test.describe("shell del dashboard", () => {
       document.body.appendChild(probe);
 
       const competing = document.createElement("style");
-      competing.textContent = "@layer mui { .bg-canvas { background-color: rgb(1, 2, 3); } }";
+      competing.textContent =
+        "@layer components { .bg-canvas { background-color: rgb(1, 2, 3); } }";
       document.head.appendChild(competing);
 
       const computed = getComputedStyle(probe).backgroundColor;
@@ -63,7 +64,9 @@ test.describe("shell del dashboard", () => {
       return computed;
     });
 
-    expect(backgroundColor, "bg-canvas debe imponerse a la capa mui").toBe("rgb(255, 255, 255)");
+    expect(backgroundColor, "bg-canvas debe imponerse a la capa components").toBe(
+      "rgb(255, 255, 255)",
+    );
   });
 
   for (const route of ["/home", "/inbox"]) {

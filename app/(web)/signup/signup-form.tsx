@@ -2,6 +2,10 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
 import { signupAction, type SignupState } from "./actions";
 
 const INITIAL_STATE: SignupState = { error: null, fieldErrors: {} };
@@ -39,7 +43,7 @@ export function SignupForm() {
   }
 
   const inputClassName =
-    "min-h-12 w-full rounded-2xl bg-surface px-4 text-sm text-text outline-none placeholder:text-text-2 focus-visible:ring-2 focus-visible:ring-accent aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-destructive";
+    "min-h-12 rounded-2xl border-0 bg-surface px-4 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-destructive";
 
   return (
     <form
@@ -49,10 +53,10 @@ export function SignupForm() {
       className="flex w-full flex-col gap-5"
     >
       <div className="flex flex-col gap-2">
-        <label htmlFor="businessName" className="text-sm font-semibold text-text">
+        <Label htmlFor="businessName" className="font-semibold">
           Nombre del negocio
-        </label>
-        <input
+        </Label>
+        <Input
           ref={businessNameRef}
           id="businessName"
           name="businessName"
@@ -69,10 +73,10 @@ export function SignupForm() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label htmlFor="signup-email" className="text-sm font-semibold text-text">
+        <Label htmlFor="signup-email" className="font-semibold">
           Correo electrónico
-        </label>
-        <input
+        </Label>
+        <Input
           ref={emailRef}
           id="signup-email"
           name="email"
@@ -90,11 +94,11 @@ export function SignupForm() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label htmlFor="signup-password" className="text-sm font-semibold text-text">
+        <Label htmlFor="signup-password" className="font-semibold">
           Contraseña
-        </label>
+        </Label>
         <div className="relative">
-          <input
+          <Input
             ref={passwordRef}
             id="signup-password"
             name="password"
@@ -105,16 +109,17 @@ export function SignupForm() {
             aria-invalid={Boolean(passwordError)}
             className={`${inputClassName} pr-28`}
           />
-          <button
+          <Button
             type="button"
+            variant="ghost"
             aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             aria-pressed={showPassword}
             aria-controls="signup-password"
             onClick={() => setShowPassword((visible) => !visible)}
-            className="absolute right-1.5 top-1/2 inline-flex min-h-11 -translate-y-1/2 items-center rounded-full px-3 text-sm font-semibold text-accent hover:bg-soft"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3"
           >
             {showPassword ? "Ocultar" : "Mostrar"}
-          </button>
+          </Button>
         </div>
         <p id="signup-password-hint" className="text-sm text-text-2">
           12 caracteres mínimo, con mayúscula, minúscula, número y símbolo.
@@ -133,13 +138,9 @@ export function SignupForm() {
         {status}
       </p>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="min-h-12 w-full rounded-full bg-accent px-6 text-base font-semibold text-canvas transition-colors hover:bg-accent-hover disabled:opacity-60"
-      >
+      <Button type="submit" size="lg" disabled={pending}>
         {pending ? "Creando cuenta…" : "Crear cuenta"}
-      </button>
+      </Button>
     </form>
   );
 }

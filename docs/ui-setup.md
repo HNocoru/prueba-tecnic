@@ -1,4 +1,4 @@
-# UI · Preparación para el rediseño (Tailwind + shadcn/ui + MUI)
+# UI · Preparación para el rediseño (Tailwind + shadcn/ui)
 
 Estado: **fundación técnica aplicada (S08, dirección A · Mostrador)**. Las pantallas de
 contenido no se rediseñan en esta entrega: solo heredan shell, tokens y fuentes.
@@ -10,54 +10,54 @@ contenido no se rediseñan en esta entrega: solo heredan shell, tokens y fuentes
 | next                                 | 16.4.6                      |
 | react / react-dom                    | 19.3.0                      |
 | tailwindcss / @tailwindcss/turbopack | 4.3.3                       |
-| @mui/material                        | 9.6.0                       |
-| @mui/icons-material                  | 9.6.0                       |
-| @emotion/react / @emotion/styled     | 11.14.0 / 11.14.1           |
+| class-variance-authority             | 0.7.1                       |
+| clsx / tailwind-merge                | 2.1.1 / 3.7.1               |
+| @radix-ui/react-slot / react-label   | 1.5.0 / 2.1.17              |
 | @playwright/test                     | 1.65.1 (Chromium instalado) |
 | eslint-plugin-jsx-a11y               | 6.10.2 (dev)                |
 
-El proyecto ya tiene `components.json` (shadcn/ui). Conviven tres capas de UI: Tailwind,
-shadcn/ui y ahora MUI. Conviene elegir **una** como base de componentes y usar la otra solo
-donde aporte (p. ej. MUI para tablas o selectores complejos).
+## Decisión S23 · shadcn/ui real, MUI retirado
 
-## Preflight de Tailwind v4 vs MUI
+El PDF de la prueba exige shadcn/ui. `components.json` existía pero no había ningún componente
+shadcn, y MUI/Emotion solo se importaban en `components/theme/ThemeRegistry.tsx`: ningún
+componente visible era de MUI (toda la UI son utilidades de Tailwind sobre tokens propios).
 
-`app/globals.css` hace `@import "tailwindcss"`, que **incluye el preflight** (reset base en
-`@layer base`). Conflictos posibles con MUI:
+- **MUI y Emotion se retiran** (`@mui/material`, `@mui/icons-material`, `@mui/material-nextjs`,
+  `@emotion/react`, `@emotion/styled`) junto con `ThemeRegistry.tsx` y la capa `mui` de
+  `globals.css` (ahora `@layer theme, base, components, utilities;`).
+- **shadcn/ui real:** `lib/utils.ts` (`cn` con `clsx` + `tailwind-merge`) y los componentes
+  `button`, `input`, `label`, `card`, `badge` y `textarea` en `components/ui`, con el código
+  new-york escrito a mano (sin la CLI, para que no tocara `globals.css`) y calibrado con los
+  tokens de la dirección A. Dependencias: `class-variance-authority`, `clsx`, `tailwind-merge`,
+  `@radix-ui/react-slot` y `@radix-ui/react-label`. No se usa `lucide-react`: los iconos siguen
+  siendo SVG propios.
+- **Tokens intactos:** los alias que shadcn espera (`--color-primary`, `--color-background`,
+  `--color-border`, `--color-ring`, `--color-muted`…) ya existían en `globals.css` y apuntan a
+  los tokens de la dirección A; `bg-accent` sigue siendo el coral `#C8274A`, y el botón
+  principal usa `bg-accent` (equivale a `primary`). `components/theme/tokens.ts` sigue siendo la
+  fuente de verdad (`e2e/tokens-contract.spec.ts`).
+- **Variantes de Button** (objetivo táctil 44 px): `default` (coral en píldora), `secondary`
+  (borde y fondo de tarjeta), `outline`, `destructive`, `ghost` (acento sobre `soft`); tamaños
+  `default`, `sm`, `lg` (48 px, ancho completo en formularios de acceso) e `icon` (44×44).
+- **Sustituido:** login, registro, tarjeta de WhatsApp, formularios de negocio y asistente,
+  `error.tsx`, lista de contactos, cuenta, `P5SectionCard` y `StatusBadge`. No se tocaron
+  `CallWindow.tsx`, `InboxView.tsx` ni su foco/diálogo. Los `<select>` y las casillas siguen
+  nativos con `p5FieldClass`.
+- **No verificado:** el aspecto real en pantalla (sin capturas) ni los E2E; las clases se
+  copiaron de las anteriores y `tailwind-merge` resuelve los solapes.
 
-1. **Doble reset.** `CssBaseline` de MUI también normaliza `body`, tipografía y márgenes.
-   Los dos juntos se pisan y cambian el aspecto según el orden de carga.
-2. **Orden de inyección.** Emotion (MUI) inyecta sus `<style>` al final del `<head>`, y por eso
-   gana a las utilidades de Tailwind aunque la especificidad sea igual: `className="p-2"` no
-   puede sobrescribir un estilo de MUI.
-3. **Botones, inputs y encabezados.** El preflight quita fondos, bordes y tamaños nativos; MUI
-   asume sus propios estilos y puede verse "plano" o duplicado si no se coordinan.
-4. **SSR con App Router.** Sin la caché de Emotion para el servidor hay parpadeo de estilos y
-   riesgo de errores de hidratación.
+### Medición S23 (producción, `next start -p 3400`, JS sin comprimir)
 
-## Cómo se resolverá
+| Ruta      | HTML antes | HTML después |  JS antes | JS después | Requests JS |
+| --------- | ---------: | -----------: | --------: | ---------: | ----------: |
+| `/login`  |   17 229 B |     17 288 B | 672 551 B |  617 288 B |     10 → 10 |
+| `/signup` |   18 044 B |     18 148 B | 673 323 B |  618 034 B |     10 → 10 |
+| `/home`   |   51 672 B |     51 714 B | 677 386 B |  627 056 B |     12 → 12 |
 
-- **Base única: la de Tailwind.** No se usa `CssBaseline` (o, si hace falta, `ScopedCssBaseline`
-  solo dentro de componentes MUI). La fuente y el color de fondo salen de Tailwind y del tema.
-- **Capas CSS.** Declarar el orden `@layer theme, base, mui, components, utilities;` al inicio de
-  `globals.css` y activar la opción de capas CSS de MUI para que sus estilos vivan en la capa
-  `mui`, por debajo de las utilidades de Tailwind. Así `className` de Tailwind sí sobrescribe.
-  La opción `enableCssLayer` existe en MUI 9.6 (verificada en los tipos de `@mui/material` y
-  `@mui/material-nextjs`); falta probarla en pantalla al implementar.
-- **Integración con Next.** `@mui/material-nextjs` (`AppRouterCacheProvider`) ya está instalado y
-  es necesario para SSR correcto con App Router.
-- **Tema MUI.** Un solo `ThemeProvider` en un componente cliente, con los colores y la tipografía
-  del diseño, para no mantener dos paletas.
+El JS baja unos 55 kB (−8 %) en acceso y 50 kB en `/home`. El HTML crece ≈ 60–100 B por las
+clases nuevas. `/home` se midió con un usuario nuevo registrado por `/signup`.
 
-## Riesgos conocidos
-
-- **Rendimiento.** MUI + Emotion añaden JavaScript de cliente y obligan a `"use client"` en los
-  componentes que los usan. La app ya tuvo problemas de lentitud (S04): medir antes y después
-  con `pnpm build && pnpm start`, y no mover pantallas enteras a cliente.
-- **Dos sistemas de diseño.** Mezclar shadcn y MUI en la misma pantalla se nota. Definir por
-  pantalla cuál se usa.
-- **Accesibilidad.** Las reglas recomendadas de `jsx-a11y` están activas en `eslint.config.mjs`
-  (se aplican a `*.jsx` y `*.tsx`).
+> Las secciones siguientes son histórico de S02/S08: describen el diseño con MUI que S23 reemplaza.
 
 ## Skill de diseño
 

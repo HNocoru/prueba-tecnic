@@ -21,8 +21,9 @@ describe("límite de error del dashboard", () => {
     expect(source).not.toMatch(/error\.message|error\.digest|\.stack/);
   });
 
-  it("usa solo clases de color que existen en los tokens", () => {
+  it("usa los componentes shadcn/ui en lugar de botones escritos a mano", () => {
+    expect(source).toContain('from "@/components/ui/button"');
+    expect(source).not.toContain("<button");
     expect(source).not.toContain("accent-h ");
-    expect(source).toContain("hover:bg-accent-hover");
   });
 });

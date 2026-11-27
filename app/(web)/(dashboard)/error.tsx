@@ -1,5 +1,8 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+
 /**
  * Límite de error del dashboard. Una sesión puede seguir siendo válida (JWT) mientras el usuario o su
  * negocio ya no existen (p. ej. tras reiniciar la base): en vez de mostrar un error crudo, se ofrece
@@ -8,9 +11,9 @@
  */
 export default function DashboardError() {
   return (
-    <div
+    <Card
       role="alert"
-      className="mx-auto mt-10 flex w-full max-w-md flex-col gap-4 rounded-2xl border border-border bg-card p-6 text-center"
+      className="mx-auto mt-10 flex w-full max-w-md flex-col gap-4 rounded-2xl border-border p-6 text-center shadow-none"
     >
       <h1 className="text-xl font-semibold text-foreground">No pudimos cargar esta pantalla</h1>
       <p className="text-sm text-muted-foreground">
@@ -18,22 +21,23 @@ export default function DashboardError() {
         sesión otra vez.
       </p>
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => window.location.reload()}
-          className="min-h-11 rounded-lg border border-border px-4 text-sm font-medium text-foreground hover:bg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-lg px-4 font-medium text-foreground hover:bg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Reintentar
-        </button>
+        </Button>
         <form action="/api/auth/logout" method="post">
-          <button
+          <Button
             type="submit"
-            className="min-h-11 w-full rounded-lg bg-accent px-4 text-sm font-medium text-white hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full rounded-lg px-4 font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Iniciar sesión de nuevo
-          </button>
+          </Button>
         </form>
       </div>
-    </div>
+    </Card>
   );
 }

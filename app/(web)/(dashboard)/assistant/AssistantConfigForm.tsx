@@ -3,12 +3,11 @@
 import { useActionState } from "react";
 
 import { voiceLabel } from "@/components/atoms/p5-presentation";
-import {
-  p5FieldClass,
-  p5LabelClass,
-  p5PrimaryButtonClass,
-  p5TextareaClass,
-} from "@/components/atoms/p5-styles";
+import { p5FieldClass } from "@/components/atoms/p5-styles";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { P5FormStatus } from "@/components/molecules/P5FormStatus";
 
 import { saveAssistantConfigAction, type AssistantActionState } from "./actions";
@@ -32,68 +31,48 @@ export function AssistantConfigForm({ initialValues }: Props) {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <label htmlFor="name" className={p5LabelClass}>
-          Nombre del asistente
-        </label>
-        <input id="name" name="name" defaultValue={initialValues.name} className={p5FieldClass} />
+        <Label htmlFor="name">Nombre del asistente</Label>
+        <Input id="name" name="name" defaultValue={initialValues.name} />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="tone" className={p5LabelClass}>
-          Tono
-        </label>
-        <input id="tone" name="tone" defaultValue={initialValues.tone} className={p5FieldClass} />
+        <Label htmlFor="tone">Tono</Label>
+        <Input id="tone" name="tone" defaultValue={initialValues.tone} />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="voice" className={p5LabelClass}>
-          Voz para llamadas
-        </label>
+        <Label htmlFor="voice">Voz para llamadas</Label>
         <select id="voice" name="voice" defaultValue={initialValues.voice} className={p5FieldClass}>
           <option value="roberto">{voiceLabel("roberto")}</option>
           <option value="eduardo">{voiceLabel("eduardo")}</option>
         </select>
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="language" className={p5LabelClass}>
-          Idioma
-        </label>
-        <input
+        <Label htmlFor="language">Idioma</Label>
+        <Input
           id="language"
           name="language"
           defaultValue={initialValues.language}
           aria-describedby="language-note"
-          className={p5FieldClass}
         />
         <p id="language-note" className="text-xs text-text-2">
           Español de México.
         </p>
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="greeting" className={p5LabelClass}>
-          Saludo inicial
-        </label>
-        <textarea
-          id="greeting"
-          name="greeting"
-          defaultValue={initialValues.greeting}
-          rows={3}
-          className={p5TextareaClass}
-        />
+        <Label htmlFor="greeting">Saludo inicial</Label>
+        <Textarea id="greeting" name="greeting" defaultValue={initialValues.greeting} rows={3} />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="escalationMessage" className={p5LabelClass}>
-          Mensaje de escalamiento
-        </label>
-        <textarea
+        <Label htmlFor="escalationMessage">Mensaje de escalamiento</Label>
+        <Textarea
           id="escalationMessage"
           name="escalationMessage"
           defaultValue={initialValues.escalationMessage}
           rows={3}
-          className={p5TextareaClass}
         />
       </div>
-      <button type="submit" disabled={pending} className={`${p5PrimaryButtonClass} w-fit`}>
+      <Button type="submit" disabled={pending} className="w-fit">
         {pending ? "Guardando..." : "Guardar cambios"}
-      </button>
+      </Button>
       <P5FormStatus message={state.message} ok={state.ok} />
     </form>
   );
