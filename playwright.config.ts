@@ -5,8 +5,10 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  // Los archivos pueden correr en paralelo con PLAYWRIGHT_WORKERS=N; dentro de un archivo las
+  // pruebas siguen en serie. Por defecto 1: comparten el tenant demo y la base local.
   fullyParallel: false,
-  workers: 1,
+  workers: Number(process.env.PLAYWRIGHT_WORKERS ?? 1),
   retries: 0,
   timeout: 45000,
   use: {
