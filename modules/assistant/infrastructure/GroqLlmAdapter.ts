@@ -50,7 +50,7 @@ export class GroqLlmAdapter implements LlmPort {
           const data = (await response.json()) as {
             choices?: { message?: { content?: string | null } }[];
           };
-          const text = data.choices?.[0]?.message?.content ?? "";
+          const text = stripThinkBlocks(data.choices?.[0]?.message?.content ?? "");
           if (!text.trim()) throw new Error("Groq devolvió una respuesta vacía");
           return text;
         }
@@ -64,4 +64,11 @@ export class GroqLlmAdapter implements LlmPort {
     }
     throw new Error(`Groq falló (estado ${lastStatus || "red/timeout"})`);
   }
+}
+
+const THINK_BLOCK = /<think\b[^>]*>[\s\S]*?<\/think\s*>/gi;
+
+/** Qwen puede emitir razonamiento en <think>; nunca debe llegar al cliente. */
+export function stripThinkBlocks(value: string): string {
+  return value.replace(THINK_BLOCK, "").trim();
 }

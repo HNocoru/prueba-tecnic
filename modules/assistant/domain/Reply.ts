@@ -17,6 +17,7 @@ export interface StoredInboundMessage {
   readonly body: string | null;
   readonly waId: string;
   readonly phoneE164: string | null;
+  readonly contactId: string;
 }
 
 export type SkipReason = "outbound" | "self_echo" | "duplicate" | "rate_limited" | "missing";

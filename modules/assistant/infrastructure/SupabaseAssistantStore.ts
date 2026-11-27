@@ -59,6 +59,7 @@ export class SupabaseAssistantStore
       body: data.body,
       waId: contact.wa_id,
       phoneE164: contact.phone_e164,
+      contactId: conversation.contact_id,
     };
   }
 

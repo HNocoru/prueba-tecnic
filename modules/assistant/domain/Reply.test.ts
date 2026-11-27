@@ -9,6 +9,7 @@ const inbound = (overrides: Partial<StoredInboundMessage> = {}): StoredInboundMe
   body: "¿Abren el sábado?",
   waId: "5215512345678",
   phoneE164: "+525512345678",
+  contactId: "contact-1",
   ...overrides,
 });
 

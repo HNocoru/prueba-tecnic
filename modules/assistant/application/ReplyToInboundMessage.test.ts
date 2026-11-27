@@ -11,6 +11,7 @@ import type {
   LlmPort,
   MessageWriter,
   ReplyEventStore,
+  RequestWriter,
   WhatsAppSenderPort,
 } from "./ports";
 import { MAX_REPLIES_PER_HOUR, ReplyToInboundMessage } from "./ReplyToInboundMessage";
@@ -47,6 +48,7 @@ const stored = (overrides: Partial<StoredInboundMessage> = {}): StoredInboundMes
   body: CUSTOMER_TEXT,
   waId: "5215512345678",
   phoneE164: "+525512345678",
+  contactId: "contact-A",
   ...overrides,
 });
 
@@ -135,6 +137,18 @@ class FakeEvents implements ReplyEventStore {
   }
   async markProcessed(tenantId: string, id: string) {
     this.processed.push({ tenantId, id });
+  }
+}
+
+class FakeRequestWriter implements RequestWriter {
+  open: { id: string; title: string; status: "pending" | "in_progress"; amount: number | null }[] =
+    [];
+  applied: unknown[] = [];
+  async listOpenRequests() {
+    return this.open;
+  }
+  async apply(input: unknown) {
+    this.applied.push(input);
   }
 }
 
@@ -292,4 +306,117 @@ describe("ReplyToInboundMessage", () => {
     expect(messages.outbound[0].tenantId).toBe(TENANT);
     expect(events.processed[0].tenantId).toBe(TENANT);
   });
+});
+
+it("clasifica y crea solicitud ai sin romper la respuesta ya enviada", async () => {
+  const inbound = new FakeInbound();
+  const business = new FakeBusiness({
+    [TENANT]: {
+      ...context("Café Aurora"),
+      catalog: [
+        {
+          kind: "service",
+          name: "Corte de cabello",
+          description: null,
+          price: 250,
+          currency: "MXN",
+        },
+      ],
+    },
+    [OTHER_TENANT]: context("Otro Negocio"),
+  });
+  const history = new FakeHistory();
+  const llm = new FakeLlm();
+  llm.generate = async (system: string) => {
+    if (system.includes("clasificador interno")) {
+      return '{"action":"create","title":"Corte de cabello","status":"pending"}';
+    }
+    return "Sí, te ayudo.";
+  };
+  const sender = new FakeSender();
+  const messages = new FakeMessages();
+  const events = new FakeEvents();
+  const requests = new FakeRequestWriter();
+  const useCase = new ReplyToInboundMessage({
+    inbound,
+    business,
+    history,
+    llm,
+    sender,
+    messages,
+    events,
+    requests,
+  });
+  const result = await useCase.execute(TENANT, CONV, MSG);
+  expect(result.status).toBe("sent");
+  expect(requests.applied).toEqual([
+    {
+      tenantId: TENANT,
+      contactId: "contact-A",
+      conversationId: CONV,
+      action: "create",
+      title: "Corte de cabello",
+      status: "pending",
+      amount: 250,
+    },
+  ]);
+});
+
+it("JSON inválido de clasificación = none y no rompe la respuesta", async () => {
+  const inbound = new FakeInbound();
+  const business = new FakeBusiness({
+    [TENANT]: context("Café Aurora"),
+    [OTHER_TENANT]: context("Otro Negocio"),
+  });
+  const history = new FakeHistory();
+  const llm = new FakeLlm();
+  llm.generate = async (system: string) =>
+    system.includes("clasificador interno") ? "{bad json" : "Ok";
+  const sender = new FakeSender();
+  const messages = new FakeMessages();
+  const events = new FakeEvents();
+  const requests = new FakeRequestWriter();
+  const useCase = new ReplyToInboundMessage({
+    inbound,
+    business,
+    history,
+    llm,
+    sender,
+    messages,
+    events,
+    requests,
+  });
+  await expect(useCase.execute(TENANT, CONV, MSG)).resolves.toMatchObject({ status: "sent" });
+  expect(requests.applied).toEqual([]);
+});
+
+it("acción prohibida completed no escribe solicitud", async () => {
+  const inbound = new FakeInbound();
+  const business = new FakeBusiness({
+    [TENANT]: context("Café Aurora"),
+    [OTHER_TENANT]: context("Otro Negocio"),
+  });
+  const history = new FakeHistory();
+  const llm = new FakeLlm();
+  llm.generate = async (system: string) =>
+    system.includes("clasificador interno")
+      ? '{"action":"update","title":"Corte","status":"completed"}'
+      : "Ok";
+  const sender = new FakeSender();
+  const messages = new FakeMessages();
+  const events = new FakeEvents();
+  const requests = new FakeRequestWriter();
+  requests.open = [{ id: "r1", title: "Corte", status: "pending", amount: null }];
+  const useCase = new ReplyToInboundMessage({
+    inbound,
+    business,
+    history,
+    llm,
+    sender,
+    messages,
+    events,
+    requests,
+  });
+  await expect(useCase.execute(TENANT, CONV, MSG)).resolves.toMatchObject({ status: "sent" });
+  expect(requests.applied).toEqual([]);
 });
