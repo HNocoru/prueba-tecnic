@@ -5,3 +5,4 @@ pnpm-lock.yaml
 supabase/migrations
 shared/db/database.types.ts
 docs/04-worker-contract.md
+design/
