@@ -52,12 +52,24 @@ describe("LiveKitWhatsAppCallGateway", () => {
   it("disconnect usa USER_INITIATED porque el terminate de Meta ya cerró la llamada", async () => {
     const { connector, gateway } = setup();
 
-    await gateway.disconnect("wacid.CALL1");
+    await gateway.disconnect("wacid.CALL1", "user_initiated");
 
     expect(connector.disconnectWhatsAppCall).toHaveBeenCalledWith(
       "wacid.CALL1",
       SECRET,
       DisconnectWhatsAppCallRequest_DisconnectReason.USER_INITIATED,
+    );
+  });
+
+  it("disconnect con business_initiated usa BUSINESS_INITIATED", async () => {
+    const { connector, gateway } = setup();
+
+    await gateway.disconnect("wacid.CALL1", "business_initiated");
+
+    expect(connector.disconnectWhatsAppCall).toHaveBeenCalledWith(
+      "wacid.CALL1",
+      SECRET,
+      DisconnectWhatsAppCallRequest_DisconnectReason.BUSINESS_INITIATED,
     );
   });
 

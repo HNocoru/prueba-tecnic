@@ -9,6 +9,7 @@ const call = {
   conversationId: "conversation-1",
   startedAt: "2026-11-26T10:00:00.000Z",
   endedAt: null,
+  waCallId: "wacid.CALL1",
 };
 
 function repository(): InMemoryCallRepository {

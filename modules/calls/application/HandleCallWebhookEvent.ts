@@ -4,8 +4,9 @@ import type { CallWebhookRepository, WhatsAppCallGateway } from "./ports";
 /**
  * Caso de uso: aplica un evento del campo calls de Meta.
  * connect crea la fila calls y contesta la llamada por el Connector de LiveKit;
- * terminate cierra la fila y cuelga el lado LiveKit. El tenant llega resuelto por
- * phone_number_id desde el módulo de WhatsApp.
+ * terminate NO cierra la fila (la cierra el end del worker, que trae motivo y duración):
+ * solo cuelga el lado LiveKit. El tenant llega resuelto por phone_number_id desde el
+ * módulo de WhatsApp.
  */
 export class HandleCallWebhookEvent {
   constructor(
@@ -15,7 +16,6 @@ export class HandleCallWebhookEvent {
 
   async execute(tenantId: string, event: CallWebhookEvent): Promise<void> {
     if (event.event === "terminate") {
-      await this.calls.endCall(tenantId, event.waCallId, event.occurredAt);
       await this.disconnectBestEffort(event.waCallId);
       return;
     }
@@ -34,10 +34,10 @@ export class HandleCallWebhookEvent {
     });
   }
 
-  /** La fila ya quedó cerrada; el Connector puede responder "ya desconectada". */
+  /** Best-effort: el Connector puede responder "ya desconectada". */
   private async disconnectBestEffort(waCallId: string): Promise<void> {
     try {
-      await this.gateway.disconnect(waCallId);
+      await this.gateway.disconnect(waCallId, "user_initiated");
     } catch {
       // Sin secretos en logs: el adaptador ya devuelve un error sanitizado, pero no se propaga.
     }

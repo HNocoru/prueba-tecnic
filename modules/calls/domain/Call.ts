@@ -14,6 +14,8 @@ export interface StoredCall {
   readonly conversationId: string;
   readonly startedAt: string;
   readonly endedAt: string | null;
+  /** Id de la llamada en Meta (wacid); null si la fila no vino del webhook. */
+  readonly waCallId: string | null;
 }
 
 export interface BusinessContext {

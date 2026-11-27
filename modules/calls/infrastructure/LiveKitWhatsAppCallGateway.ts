@@ -6,7 +6,7 @@ import {
   SessionDescription,
 } from "livekit-server-sdk";
 
-import type { AcceptCallInput, WhatsAppCallGateway } from "../application/ports";
+import type { AcceptCallInput, DisconnectReason, WhatsAppCallGateway } from "../application/ports";
 
 /** Subconjunto de ConnectorClient (livekit-server-sdk) que usa el adaptador; facilita el fake. */
 export interface ConnectorLike {
@@ -70,14 +70,16 @@ export class LiveKitWhatsAppCallGateway implements WhatsAppCallGateway {
     }
   }
 
-  async disconnect(waCallId: string): Promise<void> {
+  async disconnect(waCallId: string, reason: DisconnectReason): Promise<void> {
     try {
-      // terminate de Meta = la llamada ya terminó; USER_INITIATED evita otra llamada a Meta
-      // (y que el error de "doble desconexión" aplique al lado del negocio).
+      // user_initiated (terminate de Meta): la llamada ya terminó, no se vuelve a llamar a Meta.
+      // business_initiated (time_limit): el Connector pide a Meta terminar la llamada.
       await this.connector.disconnectWhatsAppCall(
         waCallId,
         this.config.whatsappApiKey,
-        DisconnectWhatsAppCallRequest_DisconnectReason.USER_INITIATED,
+        reason === "business_initiated"
+          ? DisconnectWhatsAppCallRequest_DisconnectReason.BUSINESS_INITIATED
+          : DisconnectWhatsAppCallRequest_DisconnectReason.USER_INITIATED,
       );
     } catch (error) {
       throw this.sanitized("DisconnectWhatsAppCall", error);

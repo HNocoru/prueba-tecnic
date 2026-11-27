@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CallWebhookEvent } from "../domain/Call";
 import { FakeWhatsAppCallGateway } from "../testing/FakeWhatsAppCallGateway";
 import { InMemoryCallRepository } from "../testing/InMemoryCallRepository";
+import { EndCall } from "./EndCall";
 import { HandleCallWebhookEvent } from "./HandleCallWebhookEvent";
 
 const TENANT = "tenant-1";
@@ -80,21 +81,45 @@ describe("HandleCallWebhookEvent", () => {
     await expect(handler.execute(TENANT, connect())).rejects.toThrow("livekit caído");
   });
 
-  it("terminate cierra la llamada por wa_call_id y cuelga en el Connector", async () => {
+  it("terminate deja la fila abierta y cuelga el Connector con USER_INITIATED", async () => {
     const { repo, gateway, handler } = setup();
+    await handler.execute(TENANT, connect());
+    const [callId] = [...repo.calls.keys()];
 
     await handler.execute(TENANT, terminate());
 
-    expect(repo.terminations).toEqual([{ tenantId: TENANT, waCallId: "wacid.CALL1", at }]);
+    expect(repo.calls.get(callId!)?.endedAt).toBeNull();
     expect(gateway.disconnects).toEqual(["wacid.CALL1"]);
+    expect(gateway.disconnectReasons).toEqual(["user_initiated"]);
   });
 
-  it("si colgar en el Connector falla, la fila ya quedó cerrada y no se propaga", async () => {
+  it("si colgar en el Connector falla, no se propaga y la fila sigue abierta", async () => {
     const { repo, gateway, handler } = setup();
+    await handler.execute(TENANT, connect());
     gateway.failDisconnect = new Error("ya desconectada");
 
     await expect(handler.execute(TENANT, terminate())).resolves.toBeUndefined();
-    expect(repo.terminations).toHaveLength(1);
+    const [callId] = [...repo.calls.keys()];
+    expect(repo.calls.get(callId!)?.endedAt).toBeNull();
+  });
+
+  it("un end posterior al terminate cierra la fila con caller_hangup y su duración", async () => {
+    const { repo, gateway, handler } = setup();
+    await handler.execute(TENANT, connect());
+    await handler.execute(TENANT, terminate());
+    const [callId] = [...repo.calls.keys()];
+
+    const result = await new EndCall(repo, gateway).execute(callId!, {
+      ended_reason: "caller_hangup",
+      answered_at: "2026-11-26T10:00:03.000Z",
+      ended_at: "2026-11-26T10:01:00.000Z",
+      duration_sec: 57,
+      error: null,
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(repo.calls.get(callId!)?.endedAt).toBe("2026-11-26T10:01:00.000Z");
+    expect(repo.lastEnd).toMatchObject({ endedReason: "caller_hangup", durationSec: 57 });
   });
 
   it("connect sin wa_id falla para que la ingesta lo registre", async () => {

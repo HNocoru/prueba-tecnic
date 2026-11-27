@@ -18,14 +18,13 @@ export interface CallRepository {
   markEnded(tenantId: string, callId: string, input: EndCallInput): Promise<void>;
 }
 
-/** Escritura de la fila calls a partir del webhook de Meta. */
+/** Alta de la fila calls a partir del webhook de Meta; el cierre lo hace el end del worker. */
 export interface CallWebhookRepository {
   /** `created` es false cuando la fila ya existía (reintento del webhook de Meta). */
   startCall(
     tenantId: string,
     event: CallWebhookEvent,
   ): Promise<{ callId: string; created: boolean }>;
-  endCall(tenantId: string, waCallId: string, at: Date): Promise<void>;
 }
 
 /** Datos para contestar una llamada entrante; el token de Meta vive solo en el adaptador. */
@@ -38,11 +37,16 @@ export interface AcceptCallInput {
   readonly roomName: string;
 }
 
+export type DisconnectReason = "user_initiated" | "business_initiated";
+
 /** Puerto hacia el WhatsApp Connector de LiveKit (AcceptWhatsAppCall / DisconnectWhatsAppCall). */
 export interface WhatsAppCallGateway {
   accept(input: AcceptCallInput): Promise<void>;
-  /** Cuelga el lado LiveKit tras el terminate de Meta. */
-  disconnect(waCallId: string): Promise<void>;
+  /**
+   * Cuelga el lado LiveKit. user_initiated: Meta ya terminó la llamada (terminate);
+   * business_initiated: nosotros la cerramos (time_limit) y Meta debe enterarse.
+   */
+  disconnect(waCallId: string, reason: DisconnectReason): Promise<void>;
 }
 
 /** Latido del worker para el indicador de salud. */

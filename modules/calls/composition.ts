@@ -25,7 +25,7 @@ export function composeCallApi(): {
   return {
     getContext: new GetCallContext(repository),
     recordTurns: new RecordCallTurns(repository),
-    endCall: new EndCall(repository),
+    endCall: new EndCall(repository, composeWhatsAppCallGateway()),
     heartbeat: new RecordWorkerHeartbeat(),
   };
 }
