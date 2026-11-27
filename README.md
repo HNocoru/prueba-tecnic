@@ -53,14 +53,35 @@ Meta en esta fase.
    pnpm dev
    ```
 
-6. Checks del repositorio:
+6. Checks del repositorio y pruebas automatizadas:
 
    ```bash
    pnpm lint
    pnpm typecheck
    pnpm test
    pnpm arch
+   pnpm test:integration
+   pnpm test:e2e
    ```
+
+### Pruebas E2E de navegador (Playwright)
+
+Para ejecutar la suite E2E de Playwright:
+
+1. Asegúrate de tener Supabase local corriendo (`pnpm db:start`) y el usuario demo sembrado:
+   ```bash
+   pnpm db:seed-user
+   ```
+2. Compila e inicia el servidor en modo producción (o utiliza tu entorno local):
+   ```bash
+   pnpm build
+   pnpm start
+   ```
+3. Ejecuta Playwright con las credenciales demo:
+   ```bash
+   DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD=DemoPassword123! pnpm test:e2e
+   ```
+   _Nota:_ Las capturas de pantalla y videos generados en caso de fallos se almacenan fuera del repositorio (`/tmp/playwright-artifacts`).
 
 ### Variables de entorno
 
