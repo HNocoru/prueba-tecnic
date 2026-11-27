@@ -87,4 +87,25 @@ describe("LiveKitWhatsAppCallGateway", () => {
     await expect(failure).rejects.toThrow(/AcceptWhatsAppCall/);
     await expect(failure).rejects.not.toThrow(SECRET);
   });
+
+  it("el código y el estado del Connector quedan en el error, sin el mensaje original", async () => {
+    const { connector, gateway } = setup();
+    const serverError = Object.assign(new Error(`invalid SDP ${SECRET}`), {
+      name: "",
+      code: "invalid_argument",
+      status: 400,
+    });
+    connector.acceptWhatsAppCall.mockRejectedValue(serverError);
+
+    const failure = gateway.accept({
+      callId: CALL_ID,
+      waCallId: "w",
+      phoneNumberId: "p",
+      sdpOffer: "s",
+      roomName: "r",
+    });
+    await expect(failure).rejects.toThrow(/código invalid_argument/);
+    await expect(failure).rejects.toThrow(/estado 400/);
+    await expect(failure).rejects.not.toThrow(SECRET);
+  });
 });

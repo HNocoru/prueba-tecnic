@@ -86,9 +86,16 @@ export class LiveKitWhatsAppCallGateway implements WhatsAppCallGateway {
     }
   }
 
-  /** Error sin el mensaje original: podría incluir el token o el SDP. */
+  /**
+   * Error sin el mensaje original (podría incluir el token o el SDP). Conserva el código
+   * y el estado HTTP del Connector, que son seguros y necesarios para diagnosticar.
+   */
   private sanitized(operation: string, error: unknown): Error {
-    const name = error instanceof Error ? error.name : "UnknownError";
-    return new Error(`${operation} falló en el Connector de LiveKit (${name})`);
+    const { code, status } = (error ?? {}) as { code?: unknown; status?: unknown };
+    const codeText = typeof code === "string" ? code : "desconocido";
+    const statusText = typeof status === "number" ? String(status) : "desconocido";
+    return new Error(
+      `${operation} falló en el Connector de LiveKit (código ${codeText}, estado ${statusText})`,
+    );
   }
 }
