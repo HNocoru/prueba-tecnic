@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   credentialsSchema,
   emailSchema,
+  loginFieldErrors,
   loginPasswordSchema,
   strongPasswordSchema,
 } from "./credentials";
@@ -100,6 +101,38 @@ describe("Validación de Contraseña Fuerte para Alta/Cambio (strongPasswordSche
 
   it("rechaza si falta símbolo/carácter especial", () => {
     expect(strongPasswordSchema.safeParse("NoSpecialChars1234").success).toBe(false);
+  });
+});
+
+describe("Mensajes de validación del login (loginFieldErrors)", () => {
+  it("devuelve el mensaje de zod para un correo con formato inválido", () => {
+    expect(loginFieldErrors({ email: "sin-arroba", password: "algo" })).toEqual({
+      email: "Formato de email inválido",
+    });
+  });
+
+  it("devuelve el mensaje de zod para un correo vacío", () => {
+    expect(loginFieldErrors({ email: "   ", password: "algo" })).toEqual({
+      email: "El email es requerido",
+    });
+  });
+
+  it("solo exige contraseña no vacía al entrar", () => {
+    expect(loginFieldErrors({ email: "usuario@gmail.com", password: "" })).toEqual({
+      password: "La contraseña no puede estar vacía",
+    });
+    expect(loginFieldErrors({ email: "usuario@gmail.com", password: "1234" })).toEqual({});
+  });
+
+  it("acepta correos de distintos proveedores sin errores", () => {
+    for (const email of ["usuario@gmail.com", "admin@outlook.com", "contacto@mi-empresa.com.mx"]) {
+      expect(loginFieldErrors({ email, password: "cualquiera" })).toEqual({});
+    }
+  });
+
+  it("no aplica la regla de contraseña fuerte en el login", () => {
+    expect(loginFieldErrors({ email: "usuario@gmail.com", password: "simple" })).toEqual({});
+    expect(strongPasswordSchema.safeParse("simple").success).toBe(false);
   });
 });
 

@@ -1,54 +1,115 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { loginAction, type LoginState } from "./actions";
 
-const INITIAL_STATE: LoginState = { error: null };
+const INITIAL_STATE: LoginState = { error: null, fieldErrors: {} };
 
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(loginAction, INITIAL_STATE);
+  const [showPassword, setShowPassword] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  const emailError = state.fieldErrors.email;
+  const passwordError = state.fieldErrors.password;
+
+  // Después de la respuesta del servidor, el foco vuelve al primer campo inválido.
+  useEffect(() => {
+    if (!state.fieldErrors.email && !state.fieldErrors.password) {
+      return;
+    }
+
+    const firstInvalid = state.fieldErrors.email ? emailRef.current : passwordRef.current;
+    firstInvalid?.focus();
+  }, [state]);
+
+  let status = "";
+  if (state.error) {
+    status = state.error;
+  } else if (emailError || passwordError) {
+    status = "Revisa los campos marcados.";
+  } else if (pending) {
+    status = "Entrando…";
+  }
+
+  const inputClassName =
+    "min-h-12 w-full rounded-2xl bg-surface px-4 text-sm text-text outline-none placeholder:text-text-2 focus-visible:ring-2 focus-visible:ring-accent aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-destructive";
 
   return (
-    <form action={formAction} className="flex w-full flex-col gap-4">
+    <form
+      action={formAction}
+      noValidate
+      aria-labelledby="login-title"
+      className="flex w-full flex-col gap-5"
+    >
       <div className="flex flex-col gap-2">
-        <label htmlFor="email" className="text-sm font-medium text-foreground">
-          Email
+        <label htmlFor="email" className="text-sm font-semibold text-text">
+          Correo electrónico
         </label>
         <input
+          ref={emailRef}
           id="email"
           name="email"
           type="email"
+          inputMode="email"
           autoComplete="email"
-          required
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground"
+          placeholder="nombre@tunegocio.mx"
+          aria-describedby="email-error"
+          aria-invalid={Boolean(emailError)}
+          className={inputClassName}
         />
+        <p id="email-error" className="text-sm font-medium text-destructive empty:hidden">
+          {emailError ?? ""}
+        </p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <label htmlFor="password" className="text-sm font-medium text-foreground">
+        <label htmlFor="password" className="text-sm font-semibold text-text">
           Contraseña
         </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-foreground"
-        />
+        <div className="relative">
+          <input
+            ref={passwordRef}
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            placeholder="Tu contraseña"
+            aria-describedby="password-error"
+            aria-invalid={Boolean(passwordError)}
+            className={`${inputClassName} pr-28`}
+          />
+          <button
+            type="button"
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            aria-pressed={showPassword}
+            aria-controls="password"
+            onClick={() => setShowPassword((visible) => !visible)}
+            className="absolute right-1.5 top-1/2 inline-flex min-h-11 -translate-y-1/2 items-center rounded-full px-3 text-sm font-semibold text-accent hover:bg-soft"
+          >
+            {showPassword ? "Ocultar" : "Mostrar"}
+          </button>
+        </div>
+        <p id="password-error" className="text-sm font-medium text-destructive empty:hidden">
+          {passwordError ?? ""}
+        </p>
       </div>
 
-      {state.error ? (
-        <p role="alert" className="text-sm text-red-600">
-          {state.error}
-        </p>
-      ) : null}
+      <p
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="min-h-5 text-sm text-text-2"
+      >
+        {status}
+      </p>
 
       <button
         type="submit"
         disabled={pending}
-        className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-60"
+        className="min-h-12 w-full rounded-full bg-accent px-6 text-base font-semibold text-canvas transition-colors hover:bg-accent-hover disabled:opacity-60"
       >
         {pending ? "Entrando…" : "Entrar"}
       </button>

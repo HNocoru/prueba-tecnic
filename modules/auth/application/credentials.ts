@@ -38,3 +38,29 @@ export const credentialsSchema = z.object({
 });
 
 export type Credentials = z.infer<typeof credentialsSchema>;
+
+/** Errores por campo del login, con los mensajes de zod ya en español. */
+export type LoginFieldErrors = Partial<Record<"email" | "password", string>>;
+
+/**
+ * Envuelve `credentialsSchema` para mostrar un mensaje por campo inválido.
+ * No añade reglas: solo toma el primer error de cada campo.
+ */
+export function loginFieldErrors(input: { email: unknown; password: unknown }): LoginFieldErrors {
+  const result = credentialsSchema.safeParse(input);
+  if (result.success) {
+    return {};
+  }
+
+  const { email, password } = result.error.flatten().fieldErrors;
+  const errors: LoginFieldErrors = {};
+
+  if (email?.length) {
+    errors.email = email[0];
+  }
+  if (password?.length) {
+    errors.password = password[0];
+  }
+
+  return errors;
+}
