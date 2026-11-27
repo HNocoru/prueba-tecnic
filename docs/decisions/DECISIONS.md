@@ -473,3 +473,24 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
 - **Prueba de regresión:** `shared/supabase/server.test.ts` fija el orden `connection()` →
   `createServerClient` con `vi.mock`. Reason: el fallo original depende de una sesión real, que no
   se puede reproducir en una prueba unitaria sin arrancar el servidor.
+
+## 2026-11-27 · S17: rediseño de Contactos, Negocio, Asistente y Cuenta
+
+- **Presentación separada de datos:** los formularios de Negocio y Asistente conservan sus
+  actions, nombres de campo y validación; solo cambian clases, títulos y estados. Reason: el
+  handoff autoriza el rediseño, no una nueva API ni un cambio de contrato.
+- **Sin estados inventados:** Contact no expone estado de conversación, así que la lista no
+  muestra los chips del artboard. Reason: un estado falso sería peor que una columna ausente.
+- **Progreso derivado:** la tarjeta de Negocio cuenta cuatro secciones ya consultadas por la
+  página. Reason: dar contexto sin añadir consultas ni cifras inventadas.
+- **Dominio cerrado en Asistente:** se conservan `roberto | eduardo` y `es-MX`; los nombres de
+  voz del artboard no se adoptan. Reason: el esquema es la fuente de verdad y el rediseño no
+  puede ampliar la validación.
+- **Cuenta sin mutaciones nuevas:** solo se muestra la sesión real y se reutiliza el POST de
+  logout; guardar datos y cambiar contraseña quedan como "Próximamente". Reason: no hay backend
+  para esas funciones y el handoff prohíbe lógica falsa o cifras inventadas.
+- **Excepción de pruebas:** `vitest.config.ts` incluye `tests/*.test.ts`; las pruebas nuevas
+  están en la superficie permitida `tests` y no arrastran `tests/integration/**`. Reason:
+  `pnpm test` solo contaba `modules/**` y `shared/**`, fuera de la lista de superficies.
+- **Sin E2E:** no se usó el puerto 3200. Reason: otro agente posee ese puerto y el handoff prohíbe
+  ejecutar la suite E2E. axe y overflow se comprobaron aparte en el puerto 3300 sin hallazgos.

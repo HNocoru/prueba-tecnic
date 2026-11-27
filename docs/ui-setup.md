@@ -378,3 +378,26 @@ ruta entra en el grafo de chunks, sin añadir dependencias. Medición adicional 
 el árbol final: `/login` 17 126 B de HTML y 571 562 B de JS (9 peticiones), `/signup` 17 941 B y
 571 562 B (9 peticiones). No se compara esa medición con la base porque la base no se pudo
 compilar con Turbopack fuera del worktree.
+
+## Parte 5 (S17) · Contactos, Negocio, Asistente y Cuenta
+
+- Se aplica la dirección A sin cambiar actions, esquemas ni validaciones de `modules/business`.
+  Los encabezados, secciones y estados usan Bricolage, tokens de `components/theme/tokens.ts`,
+  iconos en línea y áreas táctiles de al menos 44 px.
+- Contactos conserva la búsqueda local y la paginación por cursor; los estados de carga, error,
+  vacío y sin resultados llevan ícono y texto. No se inventó un estado de conversación porque
+  `Contact` no expone ese dato.
+- Negocio solo cambia la presentación de los cuatro formularios existentes. La tarjeta de
+  progreso se deriva de los cuatro datos que la página ya consulta; no consulta tablas nuevas.
+- Asistente mantiene el enum `roberto | eduardo` y el idioma `es-MX` del esquema. La vista
+  previa muestra únicamente valores reales de la configuración guardada.
+- Cuenta muestra solo correo y nombre disponibles en la sesión de Supabase. Las funciones sin
+  backend (guardar datos y cambiar contraseña) se marcan "Próximamente" sin formularios ni cifras
+  falsas. Cerrar sesión reutiliza el endpoint POST existente.
+- `vitest.config.ts` amplía el glob de `pnpm test` a `tests/*.test.ts` para que las pruebas
+  nuevas vivan en la superficie permitida `tests`. El glob excluye `tests/integration/**` para
+  no mezclar pruebas que requieren entorno de Supabase en la suite unitaria.
+- No se ejecutó E2E ni se usó el puerto 3200. Sí se comprobó axe (violaciones `serious` y
+  `critical`) y overflow en 390, 1024 y 1440 con un servidor propio en el puerto 3300: 16
+  comprobaciones, sin problemas. La verificación funcional quedó en pruebas de helper y de
+  componente con Vitest, además de los cuatro comandos del repositorio.

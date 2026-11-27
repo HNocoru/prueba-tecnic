@@ -1,5 +1,6 @@
-import { EmptyState } from "@/components/molecules/EmptyState";
-import { ErrorState } from "@/components/molecules/ErrorState";
+import Link from "next/link";
+
+import { P5StateNotice } from "@/components/molecules/P5StateNotice";
 import { composeContacts } from "@/modules/conversations/composition";
 
 import { ContactList } from "./ContactList";
@@ -29,11 +30,38 @@ export async function ContactsScreen({ loadMore }: { loadMore: LoadMoreContacts 
   }
 
   if (!data) {
-    return <ErrorState message="No se pudieron cargar los contactos. Inténtalo de nuevo." />;
+    return (
+      <P5StateNotice
+        tone="error"
+        title="No pudimos cargar tus contactos"
+        description="Revisa tu conexión e inténtalo de nuevo. Tus datos están a salvo."
+        action={
+          <Link
+            href="/contacts"
+            className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-accent"
+          >
+            Reintentar
+          </Link>
+        }
+      />
+    );
   }
+
   if (data.state === "empty") {
     return (
-      <EmptyState message="Aún no hay contactos. El primero aparece cuando alguien escribe o llama." />
+      <P5StateNotice
+        icon="inbox"
+        title="Aún no tienes contactos"
+        description="Cuando alguien escriba o llame al WhatsApp de tu negocio, aparecerá aquí con su nombre, su teléfono y cómo terminó la conversación."
+        action={
+          <Link
+            href="/inbox"
+            className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-accent"
+          >
+            Ir a la bandeja
+          </Link>
+        }
+      />
     );
   }
 

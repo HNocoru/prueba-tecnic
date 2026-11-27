@@ -1,6 +1,15 @@
 "use client";
 
 import { useActionState } from "react";
+
+import {
+  p5FieldClass,
+  p5LabelClass,
+  p5PrimaryButtonClass,
+  p5TextareaClass,
+} from "@/components/atoms/p5-styles";
+import { P5FormStatus } from "@/components/molecules/P5FormStatus";
+
 import { saveBusinessProfileAction, type BusinessActionState } from "./actions";
 
 const initialState: BusinessActionState = { ok: false, message: null };
@@ -20,20 +29,20 @@ export function BusinessProfileForm({ initialValues }: Props) {
   const [state, formAction, pending] = useActionState(saveBusinessProfileAction, initialState);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 max-w-2xl">
+    <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <label htmlFor="legalName" className="text-sm font-medium text-foreground">
-          Nombre legal
+        <label htmlFor="legalName" className={p5LabelClass}>
+          Nombre del negocio
         </label>
         <input
           id="legalName"
           name="legalName"
           defaultValue={initialValues.legalName}
-          className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+          className={p5FieldClass}
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="description" className="text-sm font-medium text-foreground">
+        <label htmlFor="description" className={p5LabelClass}>
           Descripción
         </label>
         <textarea
@@ -41,33 +50,33 @@ export function BusinessProfileForm({ initialValues }: Props) {
           name="description"
           defaultValue={initialValues.description}
           rows={3}
-          className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+          className={p5TextareaClass}
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="address" className="text-sm font-medium text-foreground">
+        <label htmlFor="address" className={p5LabelClass}>
           Dirección
         </label>
         <input
           id="address"
           name="address"
           defaultValue={initialValues.address}
-          className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+          className={p5FieldClass}
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="timezone" className="text-sm font-medium text-foreground">
+        <label htmlFor="timezone" className={p5LabelClass}>
           Zona horaria (IANA)
         </label>
         <input
           id="timezone"
           name="timezone"
           defaultValue={initialValues.timezone || "America/Mexico_City"}
-          className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+          className={p5FieldClass}
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="policies" className="text-sm font-medium text-foreground">
+        <label htmlFor="policies" className={p5LabelClass}>
           Políticas
         </label>
         <textarea
@@ -75,34 +84,24 @@ export function BusinessProfileForm({ initialValues }: Props) {
           name="policies"
           defaultValue={initialValues.policies}
           rows={3}
-          className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+          className={p5TextareaClass}
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="contactPhone" className="text-sm font-medium text-foreground">
+        <label htmlFor="contactPhone" className={p5LabelClass}>
           Teléfono de contacto
         </label>
         <input
           id="contactPhone"
           name="contactPhone"
           defaultValue={initialValues.contactPhone}
-          className="rounded-md border border-border bg-card px-3 py-2 text-sm"
+          className={p5FieldClass}
         />
       </div>
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-fit rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-      >
+      <button type="submit" disabled={pending} className={`${p5PrimaryButtonClass} w-fit`}>
         {pending ? "Guardando..." : "Guardar perfil"}
       </button>
-      {state.message ? (
-        <p
-          className={state.ok ? "text-sm text-status-done-fg" : "text-sm text-status-cancelled-fg"}
-        >
-          {state.message}
-        </p>
-      ) : null}
+      <P5FormStatus message={state.message} ok={state.ok} />
     </form>
   );
 }
