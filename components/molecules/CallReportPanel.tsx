@@ -70,7 +70,7 @@ export function CallReportPanel({
           >
             Resumen
           </h3>
-          <p className="mt-1 whitespace-pre-wrap text-foreground">
+          <p className="mt-1 whitespace-pre-wrap break-words text-foreground">
             {call.summary?.trim() || "Esta llamada no tiene resumen."}
           </p>
         </section>

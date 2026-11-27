@@ -543,6 +543,7 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   `vitest.config.ts`. Reason: el handoff exige que `pnpm test` cuente pruebas nuevas y la configuración
   original solo descubría `modules/**` y `shared/**`; las pruebas mismas viven en `tests/`, dentro de
   la superficie permitida.
+  <<<<<<< ours
 
 ## 2026-11-27 · S21: tarjeta de conexión sin datos de plataforma
 
@@ -650,3 +651,18 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
 - **Decisión:** la lista vive en `inbox/layout.tsx` (no se re-renderiza al navegar); `[conversationId]/page.tsx` carga solo hilo y panel, con su propio `loading.tsx` (`ConversationViewSkeleton`). Verificado en navegador: el nodo de la lista conserva su identidad al cambiar de contacto. Caso e2e: "la lista no se desmonta".
 - **Formularios de negocio:** no envían renglones vacíos, muestran el resultado con `aria-live` junto al botón, avisan de cambios sin guardar (`beforeunload`) y conservan lo escrito tras guardar. Lógica pura en `components/atoms/form-draft.ts` con pruebas.
 - **No verificado:** la tabla antes/después de bytes de HTML/JS (el agente se quedó sin cuota) y el e2e completo en esta rama.
+  \=======
+- **Desbordamiento por tokens largos en resúmenes:** se añadió `break-words` al resumen en
+  `CallCard`, `CallReportPanel` y `CallWindow`. Reason: `whitespace-pre-wrap` y `line-clamp-2`
+  recortan visualmente, pero no parten una URL sin espacios; con datos reales de llamada el
+  contenido alcanzó 3505 px de `scrollWidth` frente a 356 px de ancho útil. La corrección vive en
+  los tres puntos que renderizan el mismo texto, no en un recorte del contenedor.
+- **Coste medido de `/inbox`:** antes (commit `e51d702`) HTML 75968 B y JS 955940 B en 11 archivos;
+  después (árbol de trabajo actual) HTML 78952 B y JS 962003 B en 11 archivos. Delta: HTML +2984 B
+  (3,93 %) y JS +6063 B (0,63 %). Medido con dos builds de producción, el mismo seed local y
+  Chromium a 1440×900, sumando cuerpos de respuesta sin comprimir del documento y los scripts.
+  Reason: el aumento corresponde al estado de tres columnas, el panel de contacto y la ventana
+  flotante; no se añadió ninguna biblioteca de UI ni archivo JS nuevo, y el diálogo nativo evita
+  un mecanismo propio de foco. No es una medición de campo ni incluye caché o compresión.
+
+> > > > > > > theirs

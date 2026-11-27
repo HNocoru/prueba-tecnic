@@ -14,6 +14,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/integration/**/*.test.ts"],
+    // Los archivos comparten una sola base local y algunos limpian tablas en su preparación
+    // (p. ej. whatsapp_numbers): en paralelo se pisan entre sí. Se ejecutan en serie.
+    fileParallelism: false,
     passWithNoTests: false,
     testTimeout: 20000,
     hookTimeout: 20000,

@@ -222,7 +222,7 @@ function CallSummary({
   return (
     <section aria-label="Resumen de la llamada" className="space-y-4">
       <CallMeta call={call} />
-      <p className="whitespace-pre-wrap text-sm text-foreground">
+      <p className="whitespace-pre-wrap break-words text-sm text-foreground">
         {call.summary?.trim() || "Esta llamada no tiene resumen."}
       </p>
       <button

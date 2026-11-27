@@ -56,7 +56,7 @@ export function CallCard({
         <span className="mt-1 block text-xs text-muted-foreground">
           {formatDuration(call.durationSeconds)}
         </span>
-        <span className="mt-1.5 line-clamp-2 block text-xs text-foreground/80">
+        <span className="mt-1.5 line-clamp-2 block break-words text-xs text-foreground/80">
           {call.summary?.trim() || "Sin resumen de la llamada."}
         </span>
         <span className="mt-1.5 block text-[11px] font-medium text-muted-foreground">
