@@ -72,15 +72,17 @@ Para ejecutar la suite E2E de Playwright:
    ```bash
    pnpm db:seed-user
    ```
-2. Compila e inicia el servidor en modo producción (o utiliza tu entorno local):
-   ```bash
-   pnpm build
-   pnpm start
-   ```
-3. Ejecuta Playwright con las credenciales demo:
+2. Compila la app (`pnpm build`). Playwright inicia y detiene por sí mismo el servidor
+   (`next start -p 3200`, `reuseExistingServer: false`): si el puerto 3200 está ocupado, la
+   ejecución falla de inmediato en lugar de probar un servidor viejo. El servidor hereda el
+   entorno de quien ejecuta el comando; necesita `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` (valores locales de
+   `pnpm exec supabase status -o env`; las `NEXT_PUBLIC_*` también deben estar presentes al compilar).
+3. Ejecuta Playwright con las credenciales demo y el entorno de Supabase:
    ```bash
    DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD=DemoPassword123! pnpm test:e2e
    ```
+   Puedes usar `PLAYWRIGHT_BASE_URL` para apuntar a otra URL y `PLAYWRIGHT_PORT` para cambiar el puerto.
    _Nota:_ Las capturas de pantalla y videos generados en caso de fallos se almacenan fuera del repositorio (`/tmp/playwright-artifacts`).
 
 ### Variables de entorno

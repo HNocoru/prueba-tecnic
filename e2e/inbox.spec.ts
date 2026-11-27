@@ -293,7 +293,8 @@ test.describe("Bandeja rediseñada (S06) — conversación, llamada y sesión", 
 test.describe("Bandeja rediseñada (S06) — Realtime", () => {
   const messageId = "00000000-0000-4000-8000-0000000e2e01";
 
-  test.afterAll(async () => {
+  // El mismo id se reutiliza: se limpia tras cada prueba para evitar choques.
+  test.afterEach(async () => {
     await adminClient().from("messages").delete().eq("id", messageId);
   });
 
@@ -329,6 +330,43 @@ test.describe("Bandeja rediseñada (S06) — Realtime", () => {
       await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload),
     ).toBe(true);
   });
+
+  for (const [label, delayMs] of [
+    ["inmediatamente tras 'En vivo' (ventana de carrera)", 0],
+    ["1300 ms después de 'En vivo'", 1300],
+  ] as const) {
+    test(`un mensaje insertado ${label} aparece sin recargar`, async ({ page }) => {
+      await login(page);
+      await openChat(page, SEED.ana.conversation);
+      await waitForLive(page);
+      if (delayMs > 0) {
+        await page.waitForTimeout(delayMs);
+      }
+      await page.evaluate(() => {
+        (window as unknown as { __noReload: boolean }).__noReload = true;
+      });
+
+      const body = `Mensaje en vivo e2e ${delayMs}ms ${Date.now()}`;
+      const { error } = await adminClient()
+        .from("messages")
+        .insert({
+          id: messageId,
+          tenant_id: "00000000-0000-4000-8000-000000000001",
+          conversation_id: SEED.ana.conversation,
+          direction: "inbound",
+          kind: "text",
+          body,
+          wamid: `wamid.e2e.live.${delayMs}.${Date.now()}`,
+          occurred_at: new Date().toISOString(),
+        });
+      expect(error).toBeNull();
+
+      await expect(CHAT(page).getByText(body)).toBeVisible({ timeout: 15000 });
+      expect(
+        await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload),
+      ).toBe(true);
+    });
+  }
 });
 
 test.describe("Bandeja rediseñada (S06) — móvil", () => {
