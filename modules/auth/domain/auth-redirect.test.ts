@@ -26,4 +26,12 @@ describe("getAuthRedirect", () => {
   it("trata las rutas de auth como públicas", () => {
     expect(getAuthRedirect("/api/auth/callback", false)).toBeNull();
   });
+
+  it("permite el registro sin sesión", () => {
+    expect(getAuthRedirect("/signup", false)).toBeNull();
+  });
+
+  it("redirige al inicio del dashboard cuando ya hay sesión y se visita el registro", () => {
+    expect(getAuthRedirect("/signup", true)).toBe("/home");
+  });
 });
