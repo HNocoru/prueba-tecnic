@@ -3,14 +3,11 @@
 import { useActionState, useState } from "react";
 
 import { P5Icon } from "@/components/atoms/P5Icon";
-import {
-  p5ActionRowClass,
-  p5FieldClass,
-  p5LabelClass,
-  p5PrimaryButtonClass,
-  p5SecondaryButtonClass,
-  p5TextareaClass,
-} from "@/components/atoms/p5-styles";
+import { p5ActionRowClass } from "@/components/atoms/p5-styles";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { P5FormStatus } from "@/components/molecules/P5FormStatus";
 
 import { saveFaqsAction, type BusinessActionState } from "./actions";
@@ -61,66 +58,63 @@ export function FaqsForm({ initialValues }: Props) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-semibold text-text">Pregunta {index + 1}</p>
               <div className={p5ActionRowClass}>
-                <button
+                <Button
+                  variant="secondary"
+                  size="icon"
                   type="button"
                   onClick={() => move(index, -1)}
-                  className={`${p5SecondaryButtonClass} h-11 w-11 justify-center px-0`}
                   aria-label={`Subir pregunta ${index + 1}`}
                 >
                   <P5Icon name="up" className="h-4 w-4" />
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
                   type="button"
                   onClick={() => move(index, 1)}
-                  className={`${p5SecondaryButtonClass} h-11 w-11 justify-center px-0`}
                   aria-label={`Bajar pregunta ${index + 1}`}
                 >
                   <P5Icon name="down" className="h-4 w-4" />
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
                   type="button"
                   onClick={() => removeRow(index)}
-                  className={`${p5SecondaryButtonClass} h-11 w-11 justify-center px-0`}
                   aria-label={`Borrar pregunta ${index + 1}`}
                 >
                   <P5Icon name="trash" className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <label className={p5LabelClass} htmlFor={`q-${index}`}>
-                Pregunta
-              </label>
-              <input
+              <Label htmlFor={`q-${index}`}>Pregunta</Label>
+              <Input
                 id={`q-${index}`}
                 value={row.question}
                 onChange={(e) => updateRow(index, { question: e.target.value })}
-                className={p5FieldClass}
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className={p5LabelClass} htmlFor={`a-${index}`}>
-                Respuesta
-              </label>
-              <textarea
+              <Label htmlFor={`a-${index}`}>Respuesta</Label>
+              <Textarea
                 id={`a-${index}`}
                 value={row.answer}
                 onChange={(e) => updateRow(index, { answer: e.target.value })}
                 rows={3}
-                className={p5TextareaClass}
               />
             </div>
           </div>
         ))}
       </div>
       <div className={p5ActionRowClass}>
-        <button type="button" onClick={addRow} className={p5SecondaryButtonClass}>
+        <Button type="button" onClick={addRow} variant="secondary" size="sm">
           <P5Icon name="plus" className="h-4 w-4" />
           Agregar pregunta
-        </button>
-        <button type="submit" disabled={pending} className={p5PrimaryButtonClass}>
+        </Button>
+        <Button type="submit" disabled={pending}>
           {pending ? "Guardando..." : "Guardar preguntas frecuentes"}
-        </button>
+        </Button>
       </div>
       <P5FormStatus message={state.message} ok={state.ok} />
     </form>

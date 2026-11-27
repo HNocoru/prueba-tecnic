@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
 
-import { ThemeRegistry } from "@/components/theme/ThemeRegistry";
-
 import "./globals.css";
 
 const displayFont = Bricolage_Grotesque({
@@ -27,9 +25,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es" className={`${displayFont.variable} ${bodyFont.variable} h-full antialiased`}>
-      <body className="min-h-full">
-        <ThemeRegistry>{children}</ThemeRegistry>
-      </body>
+      <body className="min-h-full">{children}</body>
     </html>
   );
 }

@@ -597,3 +597,18 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   No se suben los reintentos ni los tiempos; eso ocultaría un fallo real.
 - **Regla operativa:** nunca resetear la base local mientras alguien prueba la app: borra los usuarios
   y la sesión (cookie válida, usuario inexistente) produce "no tienes un negocio asignado".
+
+## 2026-11-27 · S23 · shadcn/ui real y MUI retirado
+
+- **Decisión:** la interfaz usa shadcn/ui (`components/ui`: button, input, label, card, badge,
+  textarea; `lib/utils.ts` con `cn`) sobre los tokens de la dirección A. Se retiraron
+  `@mui/material`, `@mui/icons-material`, `@mui/material-nextjs`, `@emotion/react`,
+  `@emotion/styled`, `ThemeRegistry.tsx` y la capa CSS `mui`. Reason: el PDF exige shadcn/ui y MUI
+  solo aportaba un proveedor de tema sin ningún componente visible.
+- **Componentes escritos a mano, no con la CLI:** se siguió el código new-york oficial con las
+  variantes calibradas para reproducir el aspecto anterior; así `app/globals.css` conserva los
+  tokens y la paleta sin que una CLI los sobrescriba. `bg-accent` sigue siendo el coral; el botón
+  principal lo usa en lugar del acento neutro de shadcn.
+- **Medición:** el JS de cliente baja ≈ 55 kB en `/login` y `/signup` y ≈ 50 kB en `/home`
+  (672 551 → 617 288 B, 673 323 → 618 034 B y 677 386 → 627 056 B). Detalle en `docs/ui-setup.md`.
+- **Pendiente de verificar:** el aspecto visual real y los E2E (los corre el orquestador).

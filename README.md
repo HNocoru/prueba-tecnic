@@ -46,7 +46,7 @@ Meta (WhatsApp Cloud API)
 
 ## Stack
 
-Next.js 16 · TypeScript · Tailwind CSS 4 · Supabase (Postgres, Auth, Realtime) · Vercel.
+Next.js 16 · TypeScript · Tailwind CSS 4 + shadcn/ui · Supabase (Postgres, Auth, Realtime) · Vercel.
 LLM de texto: Groq (modelo por variable de entorno). Voz: LiveKit Agents + Phonic (speech-to-speech)
 en el worker. Ver [Decisiones y límites](#decisiones-y-límites-conocidos) para lo que difiere del PDF.
 
@@ -146,9 +146,8 @@ Realtime, vuelve a correr la integración.
 
 ## Decisiones y límites conocidos
 
-- **shadcn/ui:** el PDF lo pide. El repo tiene su `components.json`, pero la interfaz se construyó
-  con Tailwind y componentes propios sobre tokens de diseño (`components/theme/tokens.ts`); MUI
-  solo aporta el proveedor de tema.
+- **shadcn/ui:** decisión tomada. La interfaz usa shadcn/ui (`components/ui`) con tokens propios de la
+  dirección A (`components/theme/tokens.ts`). MUI se retiró por no usarse en ningún componente visible.
 - **Ligar un número** solo funciona con números registrados en la cuenta de WhatsApp Business de la
   plataforma. Un alta para cualquier negocio con su propio número requiere Embedded Signup de Meta y
   un token por negocio; no está construido.

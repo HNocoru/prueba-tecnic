@@ -1,11 +1,12 @@
 import Link from "next/link";
 
 import { accountSummary } from "@/components/atoms/p5-presentation";
-import { p5ChipClass, p5SecondaryButtonClass } from "@/components/atoms/p5-styles";
 import { P5Icon } from "@/components/atoms/P5Icon";
 import { P5PageHeader } from "@/components/molecules/P5PageHeader";
 import { P5SectionCard } from "@/components/molecules/P5SectionCard";
 import { P5StateNotice } from "@/components/molecules/P5StateNotice";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/shared/supabase/server";
 
 export default async function AccountPage() {
@@ -87,7 +88,7 @@ export default async function AccountPage() {
                   Pronto podrás actualizar tus datos desde aquí.
                 </p>
               </div>
-              <span className={p5ChipClass}>Próximamente</span>
+              <Badge>Próximamente</Badge>
             </div>
             <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl bg-surface p-4">
               <div className="min-w-0">
@@ -96,7 +97,7 @@ export default async function AccountPage() {
                   Elige una contraseña que no uses en otro sitio.
                 </p>
               </div>
-              <span className={p5ChipClass}>Próximamente</span>
+              <Badge>Próximamente</Badge>
             </div>
           </div>
         </P5SectionCard>
@@ -108,10 +109,10 @@ export default async function AccountPage() {
               contraseña.
             </p>
             <form action="/api/auth/logout" method="post">
-              <button type="submit" className={p5SecondaryButtonClass}>
+              <Button type="submit" variant="secondary" size="sm">
                 <P5Icon name="logout" className="h-4 w-4" />
                 Cerrar sesión
-              </button>
+              </Button>
             </form>
           </div>
         </P5SectionCard>
