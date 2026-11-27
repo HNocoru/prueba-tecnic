@@ -20,6 +20,9 @@ type ContactRow = Tables<"contacts">;
 type MessageRow = Tables<"messages">;
 type CallRow = Tables<"calls">;
 
+/** Tope de conversaciones en la bandeja: las más recientes. */
+const CONVERSATION_LIMIT = 50;
+
 const DIRECTIONS: readonly Direction[] = ["inbound", "outbound"];
 const MESSAGE_KINDS: readonly MessageKind[] = ["text", "audio", "image", "document"];
 const CALL_OUTCOMES: readonly NonNullable<CallOutcome>[] = [
@@ -39,59 +42,30 @@ export class SupabaseConversationRepository implements ConversationRepository {
   constructor(private readonly supabase: SupabaseClient<Database>) {}
 
   async listConversations(tenantId: string): Promise<ConversationSummary[]> {
-    const { data: conversations, error: conversationsError } = await this.supabase
+    // Una sola consulta acotada: las N conversaciones más recientes, su contacto
+    // (join por FK compuesta) y solo el último mensaje de cada una (limit 1 por
+    // padre, usa ix_messages_conversation_occurred). La RLS sigue aplicando.
+    const { data, error } = await this.supabase
       .from("conversations")
-      .select("*")
+      .select("*, contacts(*), messages(*)")
       .eq("tenant_id", tenantId)
-      .order("last_activity_at", { ascending: false });
+      .order("last_activity_at", { ascending: false })
+      .limit(CONVERSATION_LIMIT)
+      .order("occurred_at", { ascending: false, referencedTable: "messages" })
+      .limit(1, { referencedTable: "messages" });
 
-    if (conversationsError) {
+    if (error) {
       throw new Error("No se pudieron listar las conversaciones del tenant");
     }
 
-    const rows = conversations ?? [];
-    if (rows.length === 0) {
-      return [];
-    }
-
-    const { data: contacts, error: contactsError } = await this.supabase
-      .from("contacts")
-      .select("*")
-      .eq("tenant_id", tenantId);
-
-    if (contactsError) {
-      throw new Error("No se pudieron listar los contactos del tenant");
-    }
-
-    const { data: messages, error: messagesError } = await this.supabase
-      .from("messages")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .in(
-        "conversation_id",
-        rows.map((row) => row.id),
-      )
-      .order("occurred_at", { ascending: false });
-
-    if (messagesError) {
-      throw new Error("No se pudieron listar los últimos mensajes");
-    }
-
-    const contactsById = new Map((contacts ?? []).map((row) => [row.id, row]));
-    const lastMessageByConversation = new Map<string, MessageEntry>();
-    (messages ?? []).forEach((row) => {
-      if (!lastMessageByConversation.has(row.conversation_id)) {
-        lastMessageByConversation.set(row.conversation_id, this.toMessage(row));
-      }
-    });
-
-    return rows.map((row) => {
-      const contact = contactsById.get(row.contact_id);
+    return (data ?? []).map((row) => {
+      const contact = row.contacts;
       if (!contact) {
         throw new Error(
           `No se encontró el contacto ${row.contact_id} de la conversación ${row.id}`,
         );
       }
+      const last = row.messages[0];
 
       return {
         conversation: {
@@ -101,7 +75,7 @@ export class SupabaseConversationRepository implements ConversationRepository {
           lastActivityAt: row.last_activity_at,
         },
         contact: this.toContact(contact),
-        lastMessage: lastMessageByConversation.get(row.id) ?? null,
+        lastMessage: last ? this.toMessage(last) : null,
       };
     });
   }
@@ -111,37 +85,37 @@ export class SupabaseConversationRepository implements ConversationRepository {
     conversationId: string,
     filter: TimelineFilter,
   ): Promise<TimelineEntry[]> {
-    const entries: TimelineEntry[] = [];
+    // Mensajes y llamadas son independientes: se piden en paralelo (sin cascada).
+    const [messagesResult, callsResult] = await Promise.all([
+      filter === "calls"
+        ? null
+        : this.supabase
+            .from("messages")
+            .select("*")
+            .eq("tenant_id", tenantId)
+            .eq("conversation_id", conversationId)
+            .order("occurred_at", { ascending: true }),
+      filter === "messages"
+        ? null
+        : this.supabase
+            .from("calls")
+            .select("*")
+            .eq("tenant_id", tenantId)
+            .eq("conversation_id", conversationId)
+            .order("started_at", { ascending: true }),
+    ]);
 
-    if (filter !== "calls") {
-      const { data: messages, error } = await this.supabase
-        .from("messages")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("conversation_id", conversationId)
-        .order("occurred_at", { ascending: true });
-
-      if (error) {
-        throw new Error("No se pudieron listar los mensajes de la conversación");
-      }
-      entries.push(...(messages ?? []).map((row) => this.toMessage(row)));
+    if (messagesResult?.error) {
+      throw new Error("No se pudieron listar los mensajes de la conversación");
+    }
+    if (callsResult?.error) {
+      throw new Error("No se pudieron listar las llamadas de la conversación");
     }
 
-    if (filter !== "messages") {
-      const { data: calls, error } = await this.supabase
-        .from("calls")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("conversation_id", conversationId)
-        .order("started_at", { ascending: true });
-
-      if (error) {
-        throw new Error("No se pudieron listar las llamadas de la conversación");
-      }
-      entries.push(...(calls ?? []).map((row) => this.toCall(row)));
-    }
-
-    return entries;
+    return [
+      ...(messagesResult?.data ?? []).map((row) => this.toMessage(row)),
+      ...(callsResult?.data ?? []).map((row) => this.toCall(row)),
+    ];
   }
 
   private toContact(row: ContactRow): Contact {

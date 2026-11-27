@@ -5,6 +5,7 @@ import { composeInbox } from "@/modules/conversations/composition";
 
 import type { ContactPanelData } from "../molecules/ContactPanel";
 import type { ConversationListItem } from "./ConversationList";
+import { InboxRealtime } from "./InboxRealtime";
 import { InboxView, type InboxTimelineItem } from "./InboxView";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -82,18 +83,18 @@ async function loadInboxData(
     return { state: "not-found" };
   }
 
-  let timeline: InboxTimelineItem[] = [];
+  // Una sola consulta del timeline completo; el filtro y los conteos salen en memoria.
   let allEntries: InboxTimelineItem[] = [];
   if (selected) {
-    [timeline, allEntries] = await Promise.all([
-      getTimeline
-        .execute(selected.conversation.id, filter)
-        .then((entries) => entries.map(toTimelineItem)),
-      getTimeline
-        .execute(selected.conversation.id, "all")
-        .then((entries) => entries.map(toTimelineItem)),
-    ]);
+    allEntries = (await getTimeline.execute(selected.conversation.id, "all")).map(toTimelineItem);
   }
+  const timeline = allEntries.filter((entry) =>
+    filter === "messages"
+      ? entry.type === "message"
+      : filter === "calls"
+        ? entry.type === "call"
+        : true,
+  );
 
   const items: ConversationListItem[] = summaries.map((summary) => ({
     id: summary.conversation.id,
@@ -150,9 +151,13 @@ export async function InboxScreen({
   if (!data) {
     return <ErrorState message="No se pudo cargar la bandeja. Inténtalo de nuevo." />;
   }
+  // El suscriptor vive en todos los estados: el primer mensaje también debe aparecer en vivo.
   if (data.state === "empty") {
     return (
-      <EmptyState message="Aún no hay conversaciones. Escribe al WhatsApp del negocio para crear la primera" />
+      <>
+        <InboxRealtime />
+        <EmptyState message="Aún no hay conversaciones. Escribe al WhatsApp del negocio para crear la primera" />
+      </>
     );
   }
   if (data.state === "not-found") {
@@ -160,14 +165,17 @@ export async function InboxScreen({
   }
 
   return (
-    <InboxView
-      items={data.items}
-      selectedId={data.selectedId}
-      selectedName={data.selectedName}
-      timeline={data.timeline}
-      contact={data.contact}
-      filter={data.filter}
-      query={data.query}
-    />
+    <>
+      <InboxRealtime />
+      <InboxView
+        items={data.items}
+        selectedId={data.selectedId}
+        selectedName={data.selectedName}
+        timeline={data.timeline}
+        contact={data.contact}
+        filter={data.filter}
+        query={data.query}
+      />
+    </>
   );
 }

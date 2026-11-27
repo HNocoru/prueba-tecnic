@@ -110,3 +110,24 @@ participantAttributes })` y `disconnectWhatsAppCall(whatsappCallId, whatsappApiK
 - **`pre_accept` de Meta:** no se hace; se asume que el Connector gestiona el flujo de Graph API.
 - **`LIVEKIT_URL` `wss://`** se convierte a `https://` para el `ConnectorClient`.
 - **Doble desconexión:** si el worker ya cerró la sala, el `disconnect` puede fallar; se ignora.
+
+## S03 · Bandeja en tiempo real + rendimiento
+
+- **Realtime:** migración `20260104000000_realtime_inbox.sql` añade `messages`, `conversations` y `calls`
+  a `supabase_realtime` (idempotente). No se tocó ninguna política: `postgres_changes` evalúa la RLS de
+  SELECT con el JWT del suscriptor (verificado: un mensaje de otro tenant no llegó al suscriptor).
+- **Cliente:** `InboxRealtime` (client) escucha INSERT/UPDATE y llama `router.refresh()` con debounce de
+  300 ms; sin lógica de negocio. Al reconectar refresca para recuperar eventos perdidos.
+- **`listConversations`:** una consulta acotada (50 conversaciones más recientes + contacto por embed +
+  `messages` con `limit 1` por padre, usa `ix_messages_conversation_occurred`). Ya no se leen todos los
+  mensajes ni contactos del tenant. Sin migración de vista/índice: el índice ya existía.
+- **Timeline:** `InboxScreen` pide el timeline una sola vez y filtra/cuenta en memoria; el repositorio pide
+  mensajes y llamadas en paralelo.
+- **Esqueletos:** `loading.tsx` en inbox y home, `InboxSkeleton` como fallback de Suspense; misma rejilla.
+- **Caché:** no se usa `"use cache"` con datos de tenant; el shell sigue prerenderizado y los datos por
+  sesión van dentro de Suspense.
+
+### Deudas
+
+- **Tope de 50 conversaciones:** una conversación más antigua no aparece en la lista y su URL directa
+  devuelve "No encontramos esa conversación". Requiere paginación o un `getConversation` en el puerto.

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { LoadingState } from "@/components/molecules/LoadingState";
+import { InboxSkeleton } from "@/components/molecules/InboxSkeleton";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { InboxScreen } from "@/components/organisms/InboxScreen";
 
@@ -12,7 +12,7 @@ export default function InboxPage({
   return (
     <>
       <PageHeader title="Bandeja" description="Conversaciones y llamadas de tus contactos." />
-      <Suspense fallback={<LoadingState />}>
+      <Suspense fallback={<InboxSkeleton />}>
         <InboxScreen searchParams={searchParams} />
       </Suspense>
     </>
