@@ -13,10 +13,11 @@ import type { WhatsAppNumberStore } from "@/modules/channels/whatsapp/applicatio
 import { InMemoryNumberStore } from "@/modules/channels/whatsapp/testing/InMemoryNumberStore";
 
 const JARGON = /webhook|verify|token|meta|phone_number_id|\bapi\b/i;
+// Se colapsan los espacios: el formateador puede partir un párrafo en varias líneas de JSX.
 const cardSource = readFileSync(
   fileURLToPath(new URL("../components/organisms/ConnectWhatsAppCard.tsx", import.meta.url)),
   "utf8",
-);
+).replace(/\s+/g, " ");
 
 function storeWith(phone: string): WhatsAppNumberStore {
   return {
