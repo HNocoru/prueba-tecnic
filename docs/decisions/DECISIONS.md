@@ -449,3 +449,27 @@ Handoff: `odd/handoffs/S15-link-number.md`. Sin commit ni push.
 - **Sin verificación contra Graph real:** las pruebas del adaptador usan `fetchImpl` falso; no se llamó a la cuenta de Meta. Queda pendiente una prueba con un token real.
 - **`GRAPH_API_VERSION` duplicado:** el adaptador define `v25.0` porque las superficies permitidas por el handoff no incluyen `modules/assistant`. Si Graph cambia de versión hay que actualizar dos lugares.
 - **Sin id técnico en el cliente:** `GetWhatsAppConnection` ya no lo devuelve, pero la tabla `whatsapp_numbers` sigue guardándolo; es necesario para el webhook. No hay migración nueva.
+
+## 2026-11-27 · S18: `Date.now()` solo con sesión real
+
+- **Causa raíz:** `createServerClient` registra `onAuthStateChange`; con las cookies de sesión
+  reales, auth-js carga la sesión y compara `expires_at` con `Date.now()` (traza `__loadSession /
+_useSession / _emitInitialSession`). Al crear el cliente dentro del render, Next intentaba
+  prerenderizar esa lectura en `/home`, `/inbox`, `/business`, `/assistant` y `/contacts` de `next
+start` con la sesión del usuario demo. El build sin cookies salía limpio: el fallo no era de
+  compilación. Bisect: al dejar `getAll()` sin cookies en el cliente, el error desaparecía.
+- **`connection()` en el creador, no en cada página:** `await connection()` va al inicio de
+  `createClient()` en `shared/supabase/server.ts`, antes de `cookies()` y de `createServerClient`.
+  Reason: es el único punto por donde pasan los clientes con sesión (tenant, conversaciones,
+  negocio y auth) y las páginas ya están dentro del `Suspense` del layout del dashboard. Esto no
+  revive la decisión H4 de S04 (layout); la frontera dinámica baja al creador del cliente. No se
+  desactivó `cacheComponents` ni se ocultó el error con `try/catch`.
+- **Medición con sesión, `next start -p 3400`:** HTML `/home` 50 878 → 51 316 B y `/inbox`
+  80 838 → 80 966 B; JS sin cambio material (789 887 → 789 887 B y 1 181 199 → 1 181 128 B).
+  La tabla de rutas sigue idéntica, con las cinco rutas en ◐ (Partial Prerender). El log del
+  servidor pasó de 1 error `Date.now()` por petición a 0 con 27 peticiones RSC reales (16 de
+  prefetch). Reason: el coste es ~0,4 KB de HTML por el límite de Suspense; no hay regresión de
+  rendimiento ni cambio de estrategia de caché.
+- **Prueba de regresión:** `shared/supabase/server.test.ts` fija el orden `connection()` →
+  `createServerClient` con `vi.mock`. Reason: el fallo original depende de una sesión real, que no
+  se puede reproducir en una prueba unitaria sin arrancar el servidor.
