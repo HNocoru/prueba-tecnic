@@ -82,7 +82,7 @@ export class GroqLlmAdapter implements LlmPort {
         if (response.status !== 429 && response.status < 500) break;
       } catch (error) {
         lastStatus = 0;
-        lastCause = error instanceof Error ? error.name : "desconocido";
+        lastCause = describeFailure(error);
       }
     }
     throw new Error(
@@ -96,4 +96,18 @@ const THINK_BLOCK = /<think\b[^>]*>[\s\S]*?<\/think\s*>/gi;
 /** Qwen puede emitir razonamiento en <think>; nunca debe llegar al cliente. */
 export function stripThinkBlocks(value: string): string {
   return value.replace(THINK_BLOCK, "").trim();
+}
+
+/**
+ * Describe un fallo de red SIN mensajes ni cuerpos (podrían traer la key): nombre del error,
+ * código de la causa (ENOTFOUND, ECONNREFUSED, UND_ERR_...) y la función donde se lanzó.
+ */
+export function describeFailure(error: unknown): string {
+  if (!(error instanceof Error)) return "desconocido";
+  const parts = [error.name];
+  const code = (error.cause as { code?: unknown } | undefined)?.code;
+  if (typeof code === "string" && /^[A-Z0-9_]{3,40}$/.test(code)) parts.push(code);
+  const frame = error.stack?.split("\n")[1]?.match(/at (?:async )?([\w$.<>]+)/)?.[1];
+  if (frame) parts.push(`en ${frame}`);
+  return parts.join(" ");
 }

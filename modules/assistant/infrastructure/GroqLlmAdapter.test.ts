@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { GroqLlmAdapter } from "./GroqLlmAdapter";
+import { GroqLlmAdapter, describeFailure } from "./GroqLlmAdapter";
 
 const ok = (text: string) =>
   new Response(JSON.stringify({ choices: [{ message: { content: text } }] }), {
@@ -149,5 +149,19 @@ describe("GroqLlmAdapter", () => {
     });
     await expect(adapter.generate("s", [])).rejects.toThrow("vacía");
     expect(calls).toBe(2);
+  });
+});
+
+describe("describeFailure", () => {
+  it("incluye el código de la causa y no el mensaje ni la key", () => {
+    const cause = Object.assign(new Error("getaddrinfo SECRETO-GROQ"), { code: "ENOTFOUND" });
+    const error = new TypeError("fetch failed SECRETO-GROQ", { cause });
+    const text = describeFailure(error);
+    expect(text).toContain("TypeError");
+    expect(text).toContain("ENOTFOUND");
+    expect(text).not.toContain("SECRETO-GROQ");
+  });
+  it("tolera valores que no son Error", () => {
+    expect(describeFailure("x")).toBe("desconocido");
   });
 });
