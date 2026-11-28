@@ -684,3 +684,12 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   script de Node no resuelve el alias `@/` ni importa módulos con `server-only`; compartirlo
   obligaría a cruzar fronteras de `pnpm arch`. `tests/seed-evaluator.test.ts` fija el formato.
 - **Seguridad:** si el número es de otro negocio, falla sin moverlo; valida antes de crear nada.
+
+## 2026-11-27 · S30 · Negocio ficticio para la cuenta de entrega
+
+- **Decisión:** `EVALUATOR_BUSINESS_PRESET=cafeteria` en `scripts/seed-evaluator.mts` carga "Café Marimba"
+  (datos en `scripts/demo-business-cafeteria.mts`): perfil, horarios, catálogo, FAQs y asistente.
+- **Reason:** el documento de la prueba dice "inventa uno"; un negocio vacío dejaría al asistente sin
+  productos ni horarios ante los evaluadores.
+- **No destructivo:** cada sección se inserta solo si está vacía para ese negocio (idempotente).
+  `tests/demo-business-cafeteria.test.ts` valida los datos con los esquemas de `modules/business`.

@@ -14,6 +14,15 @@ import {
   // @ts-expect-error TS5097: Node exige la extensión .mts en el import.
 } from "./seed-evaluator-lib.mts";
 
+import {
+  CAFETERIA_ASSISTANT,
+  CAFETERIA_CATALOG,
+  CAFETERIA_FAQS,
+  CAFETERIA_HOURS,
+  CAFETERIA_PROFILE,
+  // @ts-expect-error TS5097: Node exige la extensión .mts en el import.
+} from "./demo-business-cafeteria.mts";
+
 function required(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Falta la variable de entorno ${name}`);
@@ -31,6 +40,10 @@ const supabase = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVI
 const email = required("EVALUATOR_EMAIL");
 const password = required("EVALUATOR_PASSWORD");
 const businessName = process.env.EVALUATOR_BUSINESS_NAME?.trim() || DEFAULT_BUSINESS_NAME;
+const preset = process.env.EVALUATOR_BUSINESS_PRESET?.trim() || "";
+if (preset && preset !== "cafeteria") {
+  fail(`EVALUATOR_BUSINESS_PRESET desconocido: "${preset}". Valores válidos: cafeteria.`);
+}
 const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim() || DEFAULT_PHONE_NUMBER_ID;
 const displayPhone = process.env.WHATSAPP_DISPLAY_PHONE?.trim() || DEFAULT_DISPLAY_PHONE;
 
@@ -125,6 +138,95 @@ try {
   if (createdUserId) await supabase.auth.admin.deleteUser(createdUserId);
   const message = error instanceof Error ? error.message : JSON.stringify(error);
   fail(`no se pudo completar el alta (${message}). Se deshizo lo creado en esta corrida.`);
+}
+
+// 4) Preset opcional: cada sección se carga solo si está VACÍA para este negocio.
+async function hasRows(
+  table: "business_profiles" | "business_hours" | "catalog_items" | "faqs" | "assistant_configs",
+) {
+  const { count, error } = await supabase
+    .from(table)
+    .select("tenant_id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId!);
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
+async function seedPreset() {
+  const tid = tenantId!;
+  const sections: [string, Parameters<typeof hasRows>[0], () => PromiseLike<{ error: unknown }>][] =
+    [
+      [
+        "perfil",
+        "business_profiles",
+        () =>
+          supabase.from("business_profiles").insert({
+            tenant_id: tid,
+            legal_name: CAFETERIA_PROFILE.legalName,
+            description: CAFETERIA_PROFILE.description,
+            address: CAFETERIA_PROFILE.address,
+            timezone: CAFETERIA_PROFILE.timezone,
+            policies: CAFETERIA_PROFILE.policies,
+            contact_phone: CAFETERIA_PROFILE.contactPhone,
+          }),
+      ],
+      [
+        "horarios",
+        "business_hours",
+        () =>
+          supabase
+            .from("business_hours")
+            .insert(CAFETERIA_HOURS.map((h: object) => ({ tenant_id: tid, ...h }))),
+      ],
+      [
+        "catálogo",
+        "catalog_items",
+        () =>
+          supabase
+            .from("catalog_items")
+            .insert(CAFETERIA_CATALOG.map((c: object) => ({ tenant_id: tid, ...c }))),
+      ],
+      [
+        "preguntas frecuentes",
+        "faqs",
+        () =>
+          supabase
+            .from("faqs")
+            .insert(CAFETERIA_FAQS.map((f: object) => ({ tenant_id: tid, ...f }))),
+      ],
+      [
+        "asistente",
+        "assistant_configs",
+        () =>
+          supabase.from("assistant_configs").insert({
+            tenant_id: tid,
+            name: CAFETERIA_ASSISTANT.name,
+            tone: CAFETERIA_ASSISTANT.tone,
+            voice: CAFETERIA_ASSISTANT.voice,
+            language: CAFETERIA_ASSISTANT.language,
+            greeting: CAFETERIA_ASSISTANT.greeting,
+            escalation_message: CAFETERIA_ASSISTANT.escalationMessage,
+          }),
+      ],
+    ];
+  for (const [label, table, insert] of sections) {
+    if (await hasRows(table)) {
+      console.log(`${label}: ya tenía datos, no se tocó`);
+      continue;
+    }
+    const { error } = await insert();
+    if (error) throw error;
+    console.log(`${label}: cargado`);
+  }
+}
+
+if (preset === "cafeteria") {
+  try {
+    await seedPreset();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : JSON.stringify(error);
+    fail(`no se pudo cargar el preset (${message}). Las secciones ya cargadas se conservan.`);
+  }
 }
 
 console.log(`Correo: ${email}`);
