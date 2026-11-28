@@ -98,7 +98,7 @@ Solo servidor, salvo las `NEXT_PUBLIC_*`. Nunca se imprimen ni se envían al nav
 2. En la configuración del número **activa las llamadas** (vienen apagadas).
 3. En la configuración del webhook usa `https://<tu-dominio>/api/whatsapp/webhook` y tu
    `WHATSAPP_VERIFY_TOKEN`, y suscribe los campos **`messages`** y **`calls`**.
-   En local, expón el puerto con un túnel (por ejemplo `ngrok http 3000`).
+   En local, expón el puerto con un túnel (por ejemplo `ngrok http 3000`); en producción es la URL de Vercel. Meta solo admite **una** URL de webhook por app.
 4. Agrega a la lista de destinatarios (máximo 5) los teléfonos que recibirán respuestas por
    **texto**. Cualquier teléfono puede **llamar**.
 5. `pnpm meta:check` revisa la suscripción de la cuenta; con `--fix <URL>` la corrige.
@@ -108,9 +108,82 @@ Solo servidor, salvo las `NEXT_PUBLIC_*`. Nunca se imprimen ni se envían al nav
 
 ## Voz (worker)
 
-El worker vive en el repo hermano `pt-worker` (Python, LiveKit Agents + Phonic). Habla con la app
+El worker vive en el repo hermano [`whatsapp-voice-worker`](https://github.com/HNocoru/whatsapp-voice-worker) (Python, LiveKit Agents + Phonic). Habla con la app
 solo por HTTP con el contrato de `docs/04-worker-contract.md` y se registra como `whatsapp-agent`.
 Necesita la URL de la app y `WORKER_API_TOKEN`. Debe estar encendido para contestar llamadas.
+
+## Despliegue (producción)
+
+La producción son tres piezas independientes; el orden importa.
+
+| Pieza                 | Dónde corre                               | Cómo se despliega                                                                                                |
+| --------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| App web + webhook     | **Vercel** (importa el repo, rama `main`) | Automático en cada push a `main`                                                                                 |
+| Base de datos y login | **Supabase** (proyecto remoto)            | `supabase db push` con las migraciones de `supabase/migrations/`                                                 |
+| Worker de voz         | **LiveKit Cloud Agents**                  | `lk agent create` (ver el README de [`whatsapp-voice-worker`](https://github.com/HNocoru/whatsapp-voice-worker)) |
+
+### 1. Base de datos (una sola vez)
+
+Con la cadena **Session pooler** del proyecto de Supabase (la conexión directa solo tiene IPv6 y
+suele fallar desde redes IPv4):
+
+```bash
+pnpm exec supabase db push --db-url "$POOLER_URL" --dry-run   # ensayo: lista las migraciones
+pnpm exec supabase db push --db-url "$POOLER_URL"             # aplica
+```
+
+La migración `20260109000000_service_role_grants.sql` da permisos explícitos al rol `service_role`;
+sin ella, un Supabase hospedado responde `permission denied for table ...` al servidor.
+
+### 2. Cuenta de entrega (negocio de ejemplo ya ligado al número de prueba)
+
+```bash
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
+EVALUATOR_EMAIL=... EVALUATOR_PASSWORD=... EVALUATOR_BUSINESS_PRESET=cafeteria \
+pnpm db:seed-evaluator
+```
+
+Crea el usuario, el negocio ficticio **Café Marimba** (perfil, horarios, catálogo, preguntas
+frecuentes y asistente) y liga el número de prueba de Meta. Es idempotente y no pisa datos. Detalle
+en [`docs/05-despliegue.md`](docs/05-despliegue.md).
+
+### 3. Vercel
+
+Importa el repo (preset Next.js, sin cambiar comandos) y carga estas variables de entorno **sin
+comillas ni espacios** (un carácter no ASCII en una llave rompe la petición; la app lo detecta y
+nombra la variable):
+
+`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`,
+`WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `GROQ_API_KEY`, `LLM_MODEL`,
+`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `WORKER_API_TOKEN` (el mismo que usa el
+worker) y `NEXT_PUBLIC_APP_URL` (la URL pública de Vercel). No hacen falta `DATABASE_URL` ni
+`DATABASE_PASSWORD`: la app no se conecta a Postgres directo.
+
+### 4. Webhook de Meta
+
+Apunta la suscripción a la URL pública y comprueba:
+
+```bash
+pnpm meta:check --fix https://<tu-app>.vercel.app/api/whatsapp/webhook
+pnpm meta:check
+```
+
+`override_callback_uri` debe ser la URL de Vercel (tiene prioridad sobre la de la app). Debe haber
+campos `messages` y `calls` suscritos y las llamadas del número en `ENABLED`.
+
+### 5. Worker
+
+Despliégalo con `lk agent create` y carga sus secretos con `lk agent update-secrets`
+(`APP_BASE_URL` = la URL de Vercel, `WORKER_API_TOKEN` idéntico al de Vercel). Con el worker local
+encendido a la vez, dos agentes `whatsapp-agent` se reparten las llamadas: apágalo.
+
+### Comprobación rápida
+
+- `GET /api/health` responde `{"status":"ok"}`.
+- `GET /api/whatsapp/webhook` sin token responde 403 y las rutas `/api/internal/*` sin credencial 401.
+- Un mensaje al número de prueba aparece en la bandeja; en `webhook_events` (`provider = assistant`)
+  queda el motivo si el asistente no pudo contestar.
 
 ## Pruebas
 
