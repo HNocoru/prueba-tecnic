@@ -1,5 +1,6 @@
 import { logger } from "@/shared/logger";
 
+import { cleanSecret } from "../application/cleanSecret";
 import { redactError } from "../application/redactError";
 import type { WhatsAppSenderPort } from "../application/ports";
 
@@ -27,6 +28,7 @@ export class GraphWhatsAppSender implements WhatsAppSenderPort {
 
   async sendText(tenantId: string, to: string, body: string): Promise<string> {
     if (!this.config.accessToken) throw new Error("WHATSAPP_ACCESS_TOKEN no configurado");
+    const accessToken = cleanSecret("WHATSAPP_ACCESS_TOKEN", this.config.accessToken);
     const phoneNumberId = await this.config.resolvePhoneNumberId(tenantId);
     if (!phoneNumberId) throw new Error("whatsapp_numbers sin phone_number_id para el tenant");
 
@@ -37,7 +39,7 @@ export class GraphWhatsAppSender implements WhatsAppSenderPort {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          Authorization: `Bearer ${this.config.accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           messaging_product: "whatsapp",

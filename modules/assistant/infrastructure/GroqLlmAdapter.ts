@@ -1,3 +1,4 @@
+import { cleanSecret } from "../application/cleanSecret";
 import type { LlmPort } from "../application/ports";
 import type { ConversationTurn } from "../domain/ConversationTurn";
 
@@ -24,6 +25,7 @@ export class GroqLlmAdapter implements LlmPort {
 
   async generate(system: string, history: ConversationTurn[]): Promise<string> {
     if (!this.config.apiKey) throw new Error("GROQ_API_KEY no configurado");
+    const apiKey = cleanSecret("GROQ_API_KEY", this.config.apiKey);
     if (!this.config.model) throw new Error("LLM_MODEL no configurado");
     const doFetch: FetchLike = this.config.fetchImpl ?? ((u, i) => fetch(u, i));
 
@@ -42,20 +44,20 @@ export class GroqLlmAdapter implements LlmPort {
 
     let first: string;
     try {
-      first = await this.request(doFetch, buildBody(system));
+      first = await this.request(doFetch, apiKey, buildBody(system));
     } catch (error) {
       if (!(error instanceof Error) || !error.message.includes("estado 400")) throw error;
-      first = await this.request(doFetch, buildBody(system, false));
+      first = await this.request(doFetch, apiKey, buildBody(system, false));
     }
     if (first.trim()) return first;
     // Un único reintento con una instrucción más corta antes de rendirse.
-    const second = await this.request(doFetch, buildBody(SHORT_SYSTEM));
+    const second = await this.request(doFetch, apiKey, buildBody(SHORT_SYSTEM));
     if (second.trim()) return second;
     throw new Error("Groq devolvió una respuesta vacía");
   }
 
   /** Una petición con reintento de red/429/5xx; devuelve el texto ya limpio (puede ser vacío). */
-  private async request(doFetch: FetchLike, body: string): Promise<string> {
+  private async request(doFetch: FetchLike, apiKey: string, body: string): Promise<string> {
     let lastStatus = 0;
     // Nombre del error de red (TimeoutError, TypeError, SyntaxError...): sin mensajes ni cuerpos,
     // que podrían traer la key. Solo para diagnosticar "red/timeout".
@@ -65,7 +67,7 @@ export class GroqLlmAdapter implements LlmPort {
         const response = await doFetch(ENDPOINT, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${this.config.apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
           body,
