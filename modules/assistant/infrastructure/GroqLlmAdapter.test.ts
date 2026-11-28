@@ -89,6 +89,19 @@ describe("GroqLlmAdapter", () => {
     expect((error as Error).message).not.toContain("SECRETO-GROQ");
   });
 
+  it("un fallo de red dice el tipo de error sin filtrar mensajes ni la key", async () => {
+    const adapter = new GroqLlmAdapter({
+      apiKey: "SECRETO-GROQ",
+      model: "m",
+      fetchImpl: async () => {
+        throw new TypeError("fetch failed SECRETO-GROQ");
+      },
+    });
+    const error = await adapter.generate("s", [{ role: "user", body: "hola" }]).catch((e) => e);
+    expect((error as Error).message).toContain("red/timeout: TypeError");
+    expect((error as Error).message).not.toContain("SECRETO-GROQ");
+  });
+
   it("falla claro si falta la key o el modelo", async () => {
     const noKey = new GroqLlmAdapter({ apiKey: undefined, model: "m" });
     await expect(noKey.generate("s", [])).rejects.toThrow("GROQ_API_KEY");

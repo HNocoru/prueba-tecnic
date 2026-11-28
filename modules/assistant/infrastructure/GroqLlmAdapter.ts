@@ -57,6 +57,9 @@ export class GroqLlmAdapter implements LlmPort {
   /** Una petición con reintento de red/429/5xx; devuelve el texto ya limpio (puede ser vacío). */
   private async request(doFetch: FetchLike, body: string): Promise<string> {
     let lastStatus = 0;
+    // Nombre del error de red (TimeoutError, TypeError, SyntaxError...): sin mensajes ni cuerpos,
+    // que podrían traer la key. Solo para diagnosticar "red/timeout".
+    let lastCause = "";
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
       try {
         const response = await doFetch(ENDPOINT, {
@@ -77,11 +80,14 @@ export class GroqLlmAdapter implements LlmPort {
         lastStatus = response.status;
         // Solo 429 y 5xx se reintentan; el cuerpo nunca se propaga (podría traer la key).
         if (response.status !== 429 && response.status < 500) break;
-      } catch {
+      } catch (error) {
         lastStatus = 0;
+        lastCause = error instanceof Error ? error.name : "desconocido";
       }
     }
-    throw new Error(`Groq falló (estado ${lastStatus || "red/timeout"})`);
+    throw new Error(
+      `Groq falló (estado ${lastStatus || `red/timeout${lastCause ? `: ${lastCause}` : ""}`})`,
+    );
   }
 }
 
