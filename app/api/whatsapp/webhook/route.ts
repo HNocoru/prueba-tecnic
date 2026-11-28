@@ -6,6 +6,13 @@ import { verifyHandshake, verifySignature } from "@/modules/channels/whatsapp";
 import { composeIngestWhatsAppWebhook } from "@/modules/channels/whatsapp/composition";
 import { serverEnv } from "@/shared/env.server";
 
+/**
+ * Tiempo máximo de la función en Vercel. Todo el procesamiento (guardar el mensaje, contestar
+ * la llamada y pedir la respuesta al modelo) corre en `after()`, ya con el 200 enviado, y
+ * cuenta contra este tope: el modelo puede tardar hasta 15 s por intento.
+ */
+export const maxDuration = 60;
+
 /** Handshake de verificación de Meta. */
 export function GET(request: Request): Response {
   const challenge = verifyHandshake(
