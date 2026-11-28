@@ -693,3 +693,10 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   productos ni horarios ante los evaluadores.
 - **No destructivo:** cada sección se inserta solo si está vacía para ese negocio (idempotente).
   `tests/demo-business-cafeteria.test.ts` valida los datos con los esquemas de `modules/business`.
+
+## S31 · Permisos explícitos de service_role (Supabase remoto)
+
+- **Síntoma:** en el Supabase hospedado, `db:seed-evaluator` falló con `permission denied for table whatsapp_numbers` (42501).
+- **Causa:** las migraciones daban permisos explícitos a `authenticated`, pero a `service_role` solo los daban los privilegios por defecto de Supabase local. Un proyecto hospedado puede no aplicarlos.
+- **Decisión:** migración `20260109000000_service_role_grants.sql` con `GRANT` explícitos a `service_role` (tablas, secuencias, funciones y valores por defecto). No toca `anon` ni `authenticated`. Verificado en local: `service_role` accede; `anon` y `authenticated` siguen sin acceso a lo restringido; `db:test` 93/93.
+- **No verificado:** su aplicación en el remoto (la hace el dueño con `supabase db push`).
