@@ -13,11 +13,15 @@ solo como contacto en su primera llamada o mensaje.
 ```bash
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
 EVALUATOR_EMAIL=... EVALUATOR_PASSWORD=... \
-[EVALUATOR_BUSINESS_NAME=...] [WHATSAPP_PHONE_NUMBER_ID=...] [WHATSAPP_DISPLAY_PHONE=...] \
+[EVALUATOR_BUSINESS_NAME=...] [EVALUATOR_BUSINESS_PRESET=cafeteria] [WHATSAPP_PHONE_NUMBER_ID=...] [WHATSAPP_DISPLAY_PHONE=...] \
 pnpm db:seed-evaluator
 ```
 
 - Es idempotente: repetirlo no duplica usuario, negocio ni número, y no borra ni pisa datos.
+- `EVALUATOR_BUSINESS_PRESET=cafeteria` (opcional) carga un negocio **ficticio**, "Café Marimba"
+  (Tuxtla Gutiérrez): perfil, horarios, catálogo, preguntas frecuentes y asistente. Dirección y
+  teléfono (961 555 01XX) son inventados. Cada sección se carga solo si está vacía y el script
+  informa qué hizo; sin la variable, el negocio queda vacío como antes.
 - Si el número ya pertenece a otro negocio, falla con un mensaje claro y no lo mueve.
 - No imprime la contraseña ni la llave de servicio. Ejecútalo solo desde tu máquina.
 
