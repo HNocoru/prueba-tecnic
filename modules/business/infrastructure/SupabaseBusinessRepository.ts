@@ -1,3 +1,4 @@
+import { toHourMinute } from "../domain/hours";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/shared/db";
 import type {
@@ -69,8 +70,8 @@ export class SupabaseBusinessRepository implements BusinessRepository {
     if (error) throw new Error(`No se pudieron leer los horarios: ${error.message}`);
     return (data ?? []).map((row) => ({
       weekday: row.weekday,
-      opens: row.opens,
-      closes: row.closes,
+      opens: toHourMinute(row.opens),
+      closes: toHourMinute(row.closes),
     }));
   }
 
