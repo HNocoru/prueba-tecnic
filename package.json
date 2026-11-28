@@ -20,6 +20,7 @@
     "db:test": "supabase test db",
     "db:types": "supabase gen types typescript --local > shared/db/database.types.ts",
     "db:seed-user": "node --env-file-if-exists=.env scripts/seed-demo-user.mts",
+    "db:seed-evaluator": "node --env-file-if-exists=.env scripts/seed-evaluator.mts",
     "meta:check": "node --env-file-if-exists=.env scripts/meta-check.mts"
   },
   "dependencies": {

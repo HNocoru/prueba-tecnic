@@ -672,3 +672,15 @@ start` con la sesión del usuario demo. El build sin cookies salía limpio: el f
   se manda solo `call_id` con un aviso sin contenido. `GET /context` queda como respaldo y contrato.
   El participante sigue llevando solo `call_id`.
 - **Idempotencia:** un reintento de Meta no vuelve a pedir snapshot ni a contestar.
+
+## 2026-11-27 · S29 · Cuenta de entrega para los evaluadores
+
+- **Decisión:** `scripts/seed-evaluator.mts` (`pnpm db:seed-evaluator`) crea de forma idempotente
+  usuario, negocio vacío, membresía y el número de prueba ya en `connected`, como el usuario demo.
+- **Reason:** los evaluadores deben caer en un negocio limpio del Supabase remoto sin usar la
+  tarjeta de conexión (que deja el número en `pending` y exige consultar Graph). Nada en el código
+  pasa de `pending` a `connected`; el seed demo lo escribe directo, y este script hace lo mismo.
+- **Duplicación mínima:** el slug y las filas de alta se copian de `RegisterAccount` porque un
+  script de Node no resuelve el alias `@/` ni importa módulos con `server-only`; compartirlo
+  obligaría a cruzar fronteras de `pnpm arch`. `tests/seed-evaluator.test.ts` fija el formato.
+- **Seguridad:** si el número es de otro negocio, falla sin moverlo; valida antes de crear nada.
